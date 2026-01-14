@@ -1,0 +1,61 @@
+# =========================
+# Flutter / Dart
+# =========================
+.dart_tool/
+.packages
+.pub-cache/
+.pub/
+build/
+.flutter-plugins
+.flutter-plugins-dependencies
+
+# =========================
+# Flutter Web
+# =========================
+web/.dart_tool/
+web/build/
+
+# =========================
+# Android / iOS build
+# =========================
+android/app/debug/
+android/app/profile/
+android/app/release/
+ios/Flutter/.last_build_id
+
+# =========================
+# Firebase
+# =========================
+.firebase/
+firebase-debug.log
+.firebaserc
+firebase.json
+
+# ⚠️ Recomendado para SaaS / multi-ambiente
+lib/firebase_options.dart
+
+# =========================
+# IDEs
+# =========================
+.vscode/
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# =========================
+# Sistema Operacional
+# =========================
+.DS_Store
+Thumbs.db
+
+# =========================
+# Logs
+# =========================
+*.log
+
+# =========================
+# Ambiente / Secrets
+# =========================
+.env
+.env.*

@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "143178924290",
+    "project_id": "petday-83d9c",
+    "storage_bucket": "petday-83d9c.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:143178924290:android:13fd46c4a712646f7ec21b",
+        "android_client_info": {
+          "package_name": "com.example.petday"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCyNVe5pKFSL5aj0Kgse8ssDaRPnCgojiE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
