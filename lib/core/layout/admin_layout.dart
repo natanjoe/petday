@@ -1,5 +1,36 @@
 import 'package:flutter/material.dart';
+import 'package:petday/features/admin/configuracoes/configuracoes_page.dart';
+import 'package:petday/features/admin/home/dashboard_admin_page.dart';
+import 'package:petday/features/admin/home_admin_page.dart';
+
 import 'responsive_layout.dart';
+
+/* =========================================================
+   Funções de navegação padrão
+========================================================= */
+
+void goToHome(BuildContext context) {
+  Navigator.pushAndRemoveUntil(
+    context,
+    MaterialPageRoute(
+      builder: (_) => const HomeAdminPage(),
+    ),
+    (route) => false,
+  );
+}
+
+void goToDashboard(BuildContext context) {
+  Navigator.push(
+    context,
+    MaterialPageRoute(
+      builder: (_) => const DashboardAdminPage(),
+    ),
+  );
+}
+
+/* =========================================================
+   ADMIN LAYOUT
+========================================================= */
 
 class AdminLayout extends StatelessWidget {
   final Widget content;
@@ -20,12 +51,16 @@ class AdminLayout extends StatelessWidget {
       ),
       desktop: _AdminDesktopLayout(
         content: content,
+        title: title,
       ),
     );
   }
 }
 
-/* ======= MOBILE ======= */
+/* =======================
+   MOBILE
+======================= */
+
 class _AdminMobileLayout extends StatelessWidget {
   final Widget content;
   final String title;
@@ -45,14 +80,17 @@ class _AdminMobileLayout extends StatelessWidget {
   }
 }
 
+/* =======================
+   DESKTOP
+======================= */
 
-
-/* ======= DESKTOP ======= */
 class _AdminDesktopLayout extends StatelessWidget {
   final Widget content;
+  final String title;
 
   const _AdminDesktopLayout({
     required this.content,
+    required this.title,
   });
 
   @override
@@ -62,9 +100,16 @@ class _AdminDesktopLayout extends StatelessWidget {
         children: [
           const _AdminSidebar(),
           Expanded(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: content,
+            child: Column(
+              children: [
+                _AdminDesktopHeader(title: title),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: content,
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -73,8 +118,40 @@ class _AdminDesktopLayout extends StatelessWidget {
   }
 }
 
+class _AdminDesktopHeader extends StatelessWidget {
+  final String title;
 
-/* ======= SIDEBAR ======= */
+  const _AdminDesktopHeader({
+    required this.title,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 56,
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border(
+          bottom: BorderSide(color: Colors.grey.shade300),
+        ),
+      ),
+      alignment: Alignment.centerLeft,
+      child: Text(
+        title,
+        style: const TextStyle(
+          fontSize: 18,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
+  }
+}
+
+/* =======================
+   SIDEBAR (DESKTOP)
+======================= */
+
 class _AdminSidebar extends StatelessWidget {
   const _AdminSidebar();
 
@@ -84,23 +161,45 @@ class _AdminSidebar extends StatelessWidget {
       width: 220,
       color: Colors.teal.shade50,
       child: ListView(
-        children: const [
-          SizedBox(height: 24),
-          _SidebarHeader(),
-          SizedBox(height: 24),
-          _MenuItem(Icons.today, 'Hoje'),
-          _MenuItem(Icons.event, 'Agenda'),
-          _MenuItem(Icons.pets, 'Pets'),
-          _MenuItem(Icons.list_alt, 'Reservas'),
-          _MenuItem(Icons.settings, 'Configurações'),
+        children: [
+          const SizedBox(height: 24),
+          const _SidebarHeader(),
+          const SizedBox(height: 24),
+
+          _MenuItem(
+            Icons.home,
+            'Home',
+            onTap: () => goToHome(context),
+          ),
+
+          _MenuItem(
+            Icons.bar_chart,
+            'Vagas',
+            onTap: () => goToDashboard(context),
+          ),
+
+          _MenuItem(
+            Icons.settings,
+            'Configurações',
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const ConfiguracoesPage(),
+                ),
+              );
+            },
+          ),
         ],
       ),
     );
   }
 }
 
+/* =======================
+   DRAWER (MOBILE)
+======================= */
 
-/* ======= DRAWER ======= */
 class _AdminDrawer extends StatelessWidget {
   const _AdminDrawer();
 
@@ -108,26 +207,55 @@ class _AdminDrawer extends StatelessWidget {
   Widget build(BuildContext context) {
     return Drawer(
       child: ListView(
-        children: const [
-          DrawerHeader(
+        children: [
+          const DrawerHeader(
             child: Text(
               'PetDay',
               style: TextStyle(fontSize: 22),
             ),
           ),
-          _MenuItem(Icons.today, 'Hoje'),
-          _MenuItem(Icons.event, 'Agenda'),
-          _MenuItem(Icons.pets, 'Pets'),
-          _MenuItem(Icons.list_alt, 'Reservas'),
-          _MenuItem(Icons.settings, 'Configurações'),
+
+          _MenuItem(
+            Icons.home,
+            'Home',
+            onTap: () {
+              Navigator.pop(context);
+              goToHome(context);
+            },
+          ),
+
+          _MenuItem(
+            Icons.bar_chart,
+            'Vagas',
+            onTap: () {
+              Navigator.pop(context);
+              goToDashboard(context);
+            },
+          ),
+
+          _MenuItem(
+            Icons.settings,
+            'Configurações',
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const ConfiguracoesPage(),
+                ),
+              );
+            },
+          ),
         ],
       ),
     );
   }
 }
 
+/* =======================
+   COMPONENTES
+======================= */
 
-/* ======= COMPONENTES ======= */
 class _SidebarHeader extends StatelessWidget {
   const _SidebarHeader();
 
@@ -145,21 +273,23 @@ class _SidebarHeader extends StatelessWidget {
   }
 }
 
-
 class _MenuItem extends StatelessWidget {
   final IconData icon;
   final String label;
+  final VoidCallback onTap;
 
-  const _MenuItem(this.icon, this.label);
+  const _MenuItem(
+    this.icon,
+    this.label, {
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
     return ListTile(
       leading: Icon(icon),
       title: Text(label),
-      onTap: () {
-        // navegação depois
-      },
+      onTap: onTap,
     );
   }
 }
