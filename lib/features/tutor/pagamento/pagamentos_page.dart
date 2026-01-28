@@ -1,11 +1,9 @@
 import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:petday/core/services/pagamento_service.dart';
 
 import 'package:flutter/services.dart';
-
 
 class PagamentosPage extends StatefulWidget {
   final String intencaoCompraId;
@@ -93,8 +91,8 @@ class _PagamentosPageState extends State<PagamentosPage> {
           emailPagamento: email,
         );
 
-        final base64 = resultado['pix_qr_code_base64'];
-        final copiaCola = resultado['pix_copia_e_cola'];
+        final base64 = resultado['qr_code_base64'];
+        final copiaCola = resultado['qr_code'];
 
         if (base64 == null || copiaCola == null) {
           setState(() {
@@ -323,7 +321,7 @@ class _PagamentosPageState extends State<PagamentosPage> {
           final data = snapshot.data!.data() as Map<String, dynamic>?;
           final status = data?['status'];
 
-         if (status == 'ativo') {
+         if (snapshot.data!.exists && status == 'ativo') {
           WidgetsBinding.instance.addPostFrameCallback((_) async {
             await _mostrarPopupPagamentoConfirmado();
 

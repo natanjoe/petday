@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:petday/features/admin/auth/login_page.dart';
+import 'package:petday/features/tutor/landing_tutor_page.dart';
 import 'firebase_options.dart';
 
 
@@ -25,7 +25,8 @@ class PetDayApp extends StatelessWidget {
         useMaterial3: true,
         colorSchemeSeed: Colors.teal,
       ),
-      home: const LoginPage(),
+      home:  const LandingTutorPage(),
+       // const LoginPage(),
     );
   }
 }
