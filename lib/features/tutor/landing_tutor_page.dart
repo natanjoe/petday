@@ -1,141 +1,113 @@
 import 'package:flutter/material.dart';
-import 'package:petday/features/admin/auth/login_page.dart';
-import 'package:petday/features/tutor/selecionar_pacote_page.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
+import 'package:petday/core/config/app_context.dart';
+import 'package:petday/core/services/pacote_service.dart';
 
 class LandingTutorPage extends StatelessWidget {
   const LandingTutorPage({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final pacoteService = PacoteService();
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF6F2EC), // bege claro
+      backgroundColor: const Color(0xFFF6F2EC),
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        title: Row(
-          children: const [
+        title: const Row(
+          children: [
             Icon(Icons.pets, color: Colors.brown),
             SizedBox(width: 8),
-            Text(
-              'PetDay',
-              style: TextStyle(
-                color: Colors.brown,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
+            Text('PetDay', style: TextStyle(color: Colors.brown)),
           ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const LoginPage()),
-              );
-            },
-            child: const Text(
-              'Entrar',
-              style: TextStyle(
-                fontSize: 16,
-                color: Colors.brown,
-              ),
-            ),
-          ),
-        ],
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const SizedBox(height: 12),
-
-            // TÍTULO PRINCIPAL
             const Text(
-              'Um dia cheio de\nbrincadeiras 🐾',
+              'Escolha o pacote ideal\npara o seu pet 🐾',
               style: TextStyle(
-                fontSize: 30,
+                fontSize: 26,
                 fontWeight: FontWeight.bold,
                 color: Colors.brown,
               ),
             ),
-
-            const SizedBox(height: 12),
-
+            const SizedBox(height: 8),
             const Text(
-              'Creche canina com cuidado, carinho e diversão '
-              'para o seu melhor amigo.',
-              style: TextStyle(
-                fontSize: 16,
-                color: Colors.black87,
+              'Pacotes configurados pela creche, com carinho e cuidado.',
+              style: TextStyle(fontSize: 16),
+            ),
+            const SizedBox(height: 24),
+
+            StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+              stream: pacoteService.listarPacotesDaCreche(
+                crecheId: AppContext.crecheId,
               ),
-            ),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Padding(
+                    padding: EdgeInsets.all(24),
+                    child: Center(child: CircularProgressIndicator()),
+                  );
+                }
 
-            const SizedBox(height: 32),
-
-            // CARDS VISUAIS (ESTÁTICOS POR ENQUANTO)
-            _PacotePreview(
-              titulo: 'Aluno ativo',
-              descricao: 'Para cães cheios de energia 🐶',
-              cor: const Color(0xFFBFD3C1),
-            ),
-            const SizedBox(height: 16),
-
-            _PacotePreview(
-              titulo: 'Aluno feliz',
-              descricao: 'Diversão equilibrada e socialização 🐕',
-              cor: const Color(0xFFDCE9D5),
-            ),
-            const SizedBox(height: 16),
-
-            _PacotePreview(
-              titulo: 'Aluno exemplar',
-              descricao: 'Rotina completa com acompanhamento 🐾',
-              cor: const Color(0xFFEAF5F2),
-            ),
-
-            const SizedBox(height: 32),
-
-            // CTA PRINCIPAL
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => const SelecionarPacotePage(),
+                if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                  return const Padding(
+                    padding: EdgeInsets.all(24),
+                    child: Center(
+                      child: Text(
+                        'Nenhum pacote disponível no momento 🐶',
+                        style: TextStyle(color: Colors.black54),
+                      ),
                     ),
                   );
-                },
-                icon: const Icon(Icons.pets),
-                label: const Text(
-                  'Quero conhecer os pacotes',
-                  style: TextStyle(fontSize: 16),
-                ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.teal,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+                }
+
+                final pacotes = snapshot.data!.docs;
+
+                return GridView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount:
+                        MediaQuery.of(context).size.width > 600 ? 2 : 1,
+                    crossAxisSpacing: 16,
+                    mainAxisSpacing: 16,
+                    childAspectRatio: 0.95,
                   ),
-                ),
-              ),
+                  itemCount: pacotes.length,
+                  itemBuilder: (context, index) {
+                    final data = pacotes[index].data();
+
+                   return _PacoteCard(
+                      titulo: data['nome'],
+                      descricao: data['descricao'],
+                      preco: data['preco_formatado'],
+                      diarias: data['diarias'],
+                      imagemFundoUrl: data['imagem_fundo_url'],
+                      onTap: () {
+                        // próximo passo: criar intenção e ir para pagamento
+                      },
+                    );
+                  },
+                );
+              },
             ),
 
-            const SizedBox(height: 40),
-
-            // RODAPÉ AFETIVO
-            Center(
+            const SizedBox(height: 32),
+            const Center(
               child: Column(
-                children: const [
+                children: [
                   Icon(Icons.favorite, color: Colors.brown, size: 32),
                   SizedBox(height: 8),
                   Text(
-                    'Cuidado, atenção e carinho\nem cada detalhe 🐾',
+                    'Cuidado, atenção e carinho\nem cada detalhe.',
                     textAlign: TextAlign.center,
-                    style: TextStyle(color: Colors.black54),
                   ),
                 ],
               ),
@@ -147,57 +119,93 @@ class LandingTutorPage extends StatelessWidget {
   }
 }
 
-/* ======================================================
-   CARD VISUAL DE PACOTE (APENAS PREVIEW)
-====================================================== */
-
-class _PacotePreview extends StatelessWidget {
+class _PacoteCard extends StatelessWidget {
   final String titulo;
   final String descricao;
-  final Color cor;
+  final String preco;
+  final int diarias;
+  final String? imagemFundoUrl;
+  final VoidCallback onTap;
 
-  const _PacotePreview({
+  const _PacoteCard({
     required this.titulo,
     required this.descricao,
-    required this.cor,
+    required this.preco,
+    required this.diarias,
+    required this.onTap,
+    this.imagemFundoUrl,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: cor,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      padding: const EdgeInsets.all(16),
-      child: Row(
-        children: [
-          const Icon(
-            Icons.pets,
-            size: 40,
-            color: Colors.brown,
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  titulo,
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  descricao,
-                  style: const TextStyle(color: Colors.black87),
-                ),
+    return InkWell(
+      borderRadius: BorderRadius.circular(18),
+      onTap: onTap,
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(18),
+          image: imagemFundoUrl != null
+              ? DecorationImage(
+                  image: NetworkImage(imagemFundoUrl!),
+                  fit: BoxFit.cover,
+                )
+              : null,
+          color: const Color(0xFFBFD3C1),
+        ),
+        child: Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(18),
+            gradient: const LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                Colors.transparent,
+                Color.fromARGB(180, 0, 0, 0),
               ],
             ),
           ),
-        ],
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.end,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              const Icon(
+                Icons.pets,
+                size: 42,
+                color: Colors.white,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                titulo,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                descricao,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 14,
+                  color: Colors.white70,
+                ),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                '$preco • $diarias diárias',
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

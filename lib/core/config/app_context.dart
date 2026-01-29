@@ -23,7 +23,7 @@
 class AppContext {
   /// 🔑 Identificador único da creche atual
   /// (ex: 'petday-centro', 'creche-abc-123')
-  static String crecheId = 'auspedagemdakah';
+  static String crecheId = 'petday_auspedagemdakah';
 
   /// 🌐 Slug público da creche (URL amigável)
   /// (ex: 'petday-centro')
