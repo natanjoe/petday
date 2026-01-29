@@ -13,16 +13,37 @@ class LandingTutorPage extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: const Color(0xFFF6F2EC),
-      appBar: AppBar(
+     appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
         title: const Row(
           children: [
             Icon(Icons.pets, color: Colors.brown),
             SizedBox(width: 8),
-            Text('PetDay', style: TextStyle(color: Colors.brown)),
+            Text(
+              'PetDay',
+              style: TextStyle(color: Colors.brown),
+            ),
           ],
         ),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 12),
+            child: TextButton(
+              onPressed: () {
+                Navigator.of(context).pushNamed('/login');
+              },
+              style: TextButton.styleFrom(
+                foregroundColor: Colors.teal,
+                textStyle: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              child: const Text('Login'),
+            ),
+          ),
+        ],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
@@ -30,7 +51,8 @@ class LandingTutorPage extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              'Escolha o pacote ideal\npara o seu pet 🐾',
+              'Auspedagem da KAH\n'
+              'Escolha o pacote ideal para o seu pet 🐾',
               style: TextStyle(
                 fontSize: 26,
                 fontWeight: FontWeight.bold,
@@ -99,6 +121,36 @@ class LandingTutorPage extends StatelessWidget {
               },
             ),
 
+            const SizedBox(height: 24),
+
+            Center(
+              child: OutlinedButton.icon(
+                onPressed: () {
+                  Navigator.of(context).pushNamed('/login');
+                },
+                icon: const Icon(Icons.login),
+                label: const Text(
+                  'Já sou cliente · Entrar',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 16,
+                  ),
+                ),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.teal,
+                  side: const BorderSide(color: Colors.teal, width: 2),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 28,
+                    vertical: 14,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(35), // combina com os cards
+                  ),
+                ),
+              ),
+            ),
+
+
             const SizedBox(height: 32),
             const Center(
               child: Column(
@@ -139,11 +191,11 @@ class _PacoteCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return InkWell(
-      borderRadius: BorderRadius.circular(18),
+      borderRadius: BorderRadius.circular(35),
       onTap: onTap,
       child: Container(
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(18),
+          borderRadius: BorderRadius.circular(35),
           image: imagemFundoUrl != null
               ? DecorationImage(
                   image: NetworkImage(imagemFundoUrl!),
@@ -154,13 +206,14 @@ class _PacoteCard extends StatelessWidget {
         ),
         child: Container(
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(18),
+            borderRadius: BorderRadius.circular(35),
             gradient: const LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
               colors: [
                 Colors.transparent,
-                Color.fromARGB(180, 0, 0, 0),
+               Color.fromARGB(120, 0, 0, 0),
+               Color.fromARGB(200, 0, 0, 0),
               ],
             ),
           ),
