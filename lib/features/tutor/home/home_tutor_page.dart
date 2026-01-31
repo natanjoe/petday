@@ -1,16 +1,29 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'home_tutor_pacotes_view.dart';
+import 'package:cloud_functions/cloud_functions.dart';
+
 
 class HomeTutorPage extends StatefulWidget {
   const HomeTutorPage({super.key});
 
   @override
   State<HomeTutorPage> createState() => _HomeTutorPageState();
+
 }
 
 class _HomeTutorPageState extends State<HomeTutorPage> {
   Widget _paginaAtual = const HomeTutorPacotesView();
+
+  /*=========
+    chama a função para associar o pacote comprado ao cliente o inicio da sessão do usuário
+    ======================*/  
+  @override
+  void initState() {
+    super.initState();
+    _associarPacotesAoTutor();
+  }
+
 
   void _selecionarPagina(Widget pagina) {
     setState(() {
@@ -92,3 +105,22 @@ class _HomeTutorPageState extends State<HomeTutorPage> {
     );
   }
 }
+
+/*====================================
+    ASSOCIA O PACOTE COMPRADO AO USUARIO NA HORA DO LOGIN
+=======================================*/
+Future<void> _associarPacotesAoTutor() async {
+  try {
+    final callable = FirebaseFunctions.instance
+        .httpsCallable('associarPacotesAoTutor');
+
+    final result = await callable.call();
+
+    debugPrint(
+      '📦 Pacotes associados: ${result.data['associados']}',
+    );
+  } catch (e) {
+    debugPrint('❌ Erro ao associar pacotes: $e');
+  }
+}
+

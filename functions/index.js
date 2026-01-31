@@ -21,21 +21,41 @@ exports.criarPagamento = onCall(async (request) => {
   const { data, auth } = request;
 
   const {
-    crecheId,
-    pacoteId,
+    intencaoCompraId,
     formaPagamento,
     parcelas = 1,
     emailPagamento,
-
-    // 🔑 Preferências vindas do app (ANTES DO PAGAMENTO)
-    preferencias, // { raca_id, raca_nome, porte, data_pre_selecionada }
   } = data ?? {};
 
-  if (!crecheId || !pacoteId || !formaPagamento || !emailPagamento) {
+  if (!intencaoCompraId || !formaPagamento || !emailPagamento) {
     throw new Error("Dados incompletos para pagamento");
   }
 
-  /* ===== GATEWAY ===== */
+  /* ======================================================
+     BUSCAR INTENÇÃO DE COMPRA (FONTE DA VERDADE)
+  ====================================================== */
+  const intencaoSnap = await db
+    .collection("intencoes_compra")
+    .doc(intencaoCompraId)
+    .get();
+
+  if (!intencaoSnap.exists) {
+    throw new Error("Intenção de compra não encontrada");
+  }
+
+  const intencao = intencaoSnap.data();
+
+  const crecheId = intencao.creche_id;
+  const pacoteId = intencao.pacote_id;
+  const preferencias = intencao.preferencias ?? null;
+
+  if (!crecheId || !pacoteId) {
+    throw new Error("Intenção inválida");
+  }
+
+  /* ======================================================
+     GATEWAY
+  ====================================================== */
   const gatewaySnap = await db
     .collection("creches")
     .doc(crecheId)
@@ -43,16 +63,15 @@ exports.criarPagamento = onCall(async (request) => {
     .doc("gateway")
     .get();
 
-  if (!gatewaySnap.exists) {
-    throw new Error("Gateway não configurado");
+  if (!gatewaySnap.exists || !gatewaySnap.data()?.ativo) {
+    throw new Error("Pagamentos indisponíveis");
   }
 
   const gatewayConfig = gatewaySnap.data();
-  if (!gatewayConfig.ativo) {
-    throw new Error("Pagamentos desativados");
-  }
 
-  /* ===== PACOTE ===== */
+  /* ======================================================
+     PACOTE
+  ====================================================== */
   const pacoteSnap = await db
     .collection("creches")
     .doc(crecheId)
@@ -69,7 +88,9 @@ exports.criarPagamento = onCall(async (request) => {
     throw new Error("Pacote indisponível");
   }
 
-  /* ===== VALIDAÇÕES PAGAMENTO ===== */
+  /* ======================================================
+     VALIDAÇÕES PAGAMENTO
+  ====================================================== */
   if (formaPagamento === "cartao") {
     if (!gatewayConfig.cartao_ativo) {
       throw new Error("Cartão indisponível");
@@ -83,7 +104,9 @@ exports.criarPagamento = onCall(async (request) => {
     throw new Error("PIX indisponível");
   }
 
-  /* ===== VALOR (PADRÃO DEFINITIVO: CENTAVOS) ===== */
+  /* ======================================================
+     VALOR (CENTAVOS)
+  ====================================================== */
   let valorCentavos;
 
   if (typeof pacote.preco_centavos === "number") {
@@ -94,7 +117,9 @@ exports.criarPagamento = onCall(async (request) => {
     throw new Error("Preço inválido");
   }
 
-  /* ===== MERCADO PAGO ===== */
+  /* ======================================================
+     MERCADO PAGO
+  ====================================================== */
   const client = new MercadoPagoConfig({
     accessToken: process.env.MP_ACCESS_TOKEN,
   });
@@ -111,17 +136,9 @@ exports.criarPagamento = onCall(async (request) => {
     },
   });
 
-  /* ===== NORMALIZA PREFERÊNCIAS ===== */
-  const preferenciasNormalizadas = preferencias
-    ? {
-        raca_id: preferencias.raca_id ?? null,
-        raca_nome: preferencias.raca_nome ?? null,
-        porte: preferencias.porte ?? null,
-        data_pre_selecionada: preferencias.data_pre_selecionada ?? null, // yyyy-MM-dd
-      }
-    : null;
-
-  /* ===== SALVAR PACOTE ADQUIRIDO ===== */
+  /* ======================================================
+     CRIAR PACOTE ADQUIRIDO
+  ====================================================== */
   const pacoteAdquiridoRef = await db.collection("pacotes_adquiridos").add({
     tutor_id: auth?.uid ?? null,
     email_pagamento: emailPagamento,
@@ -130,8 +147,7 @@ exports.criarPagamento = onCall(async (request) => {
     pacote_id: pacoteId,
     pacote_nome: pacote.nome,
 
-    // 🔑 Preferências do tutor salvas DEFINITIVAMENTE aqui
-    preferencias: preferenciasNormalizadas,
+    preferencias: preferencias,
 
     diarias_totais: pacote.diarias,
     diarias_usadas: 0,
@@ -152,17 +168,32 @@ exports.criarPagamento = onCall(async (request) => {
     atualizado_em: admin.firestore.FieldValue.serverTimestamp(),
   });
 
+  /* ======================================================
+     MARCAR INTENÇÃO COMO PROCESSADA
+  ====================================================== */
+  await intencaoSnap.ref.update({
+    status: "pagamento_criado",
+    pacote_adquirido_id: pacoteAdquiridoRef.id,
+    atualizado_em: admin.firestore.FieldValue.serverTimestamp(),
+  });
+
   return {
     pagamentoId: pagamentoMP.id,
     status: pagamentoMP.status,
-    qr_code:
-      pagamentoMP.point_of_interaction?.transaction_data?.qr_code ?? null,
-    qr_code_base64:
+
+    // 🔑 PIX
+    pix_qr_code_base64:
       pagamentoMP.point_of_interaction?.transaction_data?.qr_code_base64 ??
       null,
+
+    pix_copia_e_cola:
+      pagamentoMP.point_of_interaction?.transaction_data?.qr_code ??
+      null,
+
     pacoteAdquiridoId: pacoteAdquiridoRef.id,
   };
 });
+
 
 /* ======================================================
    WEBHOOK: MERCADO PAGO
@@ -221,13 +252,7 @@ exports.criarReservaTutor = onCall(async (request) => {
     throw new Error("Usuário não autenticado");
   }
 
-  const {
-    crecheId,
-    dataReserva, // yyyy-MM-dd
-    petNome,
-    racaId,
-    porte,
-  } = data ?? {};
+  const { crecheId, dataReserva, petNome, racaId, porte } = data ?? {};
 
   if (!crecheId || !dataReserva || !petNome || !racaId || !porte) {
     throw new Error("Dados incompletos");
@@ -253,6 +278,7 @@ exports.criarReservaTutor = onCall(async (request) => {
       throw new Error("Sem diárias disponíveis");
     }
 
+    // Agenda
     const agendaRef = db
       .collection("creches")
       .doc(crecheId)
@@ -280,11 +306,6 @@ exports.criarReservaTutor = onCall(async (request) => {
       { merge: true }
     );
 
-    tx.update(pacoteDoc.ref, {
-      diarias_usadas: admin.firestore.FieldValue.increment(1),
-      atualizado_em: admin.firestore.FieldValue.serverTimestamp(),
-    });
-
     tx.set(db.collection("reservas").doc(), {
       tutor_id: auth.uid,
       creche_id: crecheId,
@@ -295,8 +316,8 @@ exports.criarReservaTutor = onCall(async (request) => {
       raca_id: racaId,
       porte,
 
-      status: "confirmada",
-      origem: "tutor",
+      status: "reservada",
+      checkin: false,
 
       criado_em: admin.firestore.FieldValue.serverTimestamp(),
     });
@@ -304,3 +325,114 @@ exports.criarReservaTutor = onCall(async (request) => {
 
   return { ok: true };
 });
+
+/*======================================================
+FUNÇÃO:A CRECHE FAZ O CHECK-IN DO ANIMAL
+=======================================================*/
+exports.checkinReservaAdmin = onCall(async (request) => {
+  const { auth, data } = request;
+
+  if (!auth) {
+    throw new Error("Usuário não autenticado");
+  }
+
+  const { reservaId } = data ?? {};
+  if (!reservaId) {
+    throw new Error("Reserva inválida");
+  }
+
+  await db.runTransaction(async (tx) => {
+    const reservaRef = db.collection("reservas").doc(reservaId);
+    const reservaSnap = await tx.get(reservaRef);
+
+    if (!reservaSnap.exists) {
+      throw new Error("Reserva não encontrada");
+    }
+
+    const reserva = reservaSnap.data();
+
+    if (reserva.checkin === true) {
+      throw new Error("Reserva já teve check-in");
+    }
+
+    const pacoteRef = db
+      .collection("pacotes_adquiridos")
+      .doc(reserva.pacote_adquirido_id);
+
+    const pacoteSnap = await tx.get(pacoteRef);
+    const pacote = pacoteSnap.data();
+
+    if (pacote.diarias_usadas >= pacote.diarias_totais) {
+      throw new Error("Pacote sem saldo");
+    }
+
+    // ✔️ Marca check-in
+    tx.update(reservaRef, {
+      checkin: true,
+      status: "confirmada",
+      checkin_em: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    // ✔️ Consome diária
+    tx.update(pacoteRef, {
+      diarias_usadas: admin.firestore.FieldValue.increment(1),
+      atualizado_em: admin.firestore.FieldValue.serverTimestamp(),
+    });
+  });
+
+  return { ok: true };
+});
+
+/*===============================
+FUNÇÃO: ASSOCIA O PACOTE ADQUIRIDO AO TUTOR
+==================================*/
+exports.associarPacoteAoTutor = onCall(async (request) => {
+  const { auth } = request;
+
+  if (!auth) {
+    throw new Error("Usuário não autenticado");
+  }
+
+  const userId = auth.uid;
+
+  // buscar usuário
+  const userSnap = await db
+    .collection("usuarios")
+    .doc(userId)
+    .get();
+
+  if (!userSnap.exists) {
+    throw new Error("Usuário não encontrado");
+  }
+
+  const userData = userSnap.data();
+  const email = userData.email;
+
+  if (!email) {
+    throw new Error("Usuário sem email");
+  }
+
+  // buscar pacotes pagos ainda não associados
+  const pacotesSnap = await db
+    .collection("pacotes_adquiridos")
+    .where("tutor_id", "==", null)
+    .where("email_pagamento", "==", email)
+    .where("status", "==", "ativo")
+    .get();
+
+  const batch = db.batch();
+
+  pacotesSnap.docs.forEach((doc) => {
+    batch.update(doc.ref, {
+      tutor_id: userId,
+      atualizado_em: admin.firestore.FieldValue.serverTimestamp(),
+    });
+  });
+
+  await batch.commit();
+
+  return {
+    associados: pacotesSnap.size,
+  };
+});
+
