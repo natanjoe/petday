@@ -16,90 +16,62 @@ class LandingTutorPage extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: const Color(0xFFF6F2EC),
-      
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-      
-        title: StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-          stream: crecheService.streamCreche(
-            crecheId: AppContext.crecheId,
-          ),
 
-          builder: (context, snapshot) {
-            final data = snapshot.data?.data();
-            final logoUrl = data?['logo'];
-            final nomeCreche = data?['nome_creche'] ?? 'PetDay';
-
-            return Row(
-              children: [
-                if (logoUrl != null && logoUrl.toString().isNotEmpty)
-                  Image.network(
-                    logoUrl,
-                    height: 36,
-                    width: 36,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) {
-                      return const Icon(Icons.pets, color: Colors.brown);
-                    },
-                  )
-                else
-                  const Icon(Icons.pets, color: Colors.brown),
-
-                const SizedBox(width: 8),
-                Text(
-                  nomeCreche,
-                  style: const TextStyle(
-                    color: Colors.brown,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            );
-          },
-        ),
-        
-actions: [
-  StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+appBar: AppBar(
+  backgroundColor: Colors.transparent,
+  elevation: 0,
+  title: StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
     stream: crecheService.streamCreche(
       crecheId: AppContext.crecheId,
     ),
     builder: (context, snapshot) {
       final data = snapshot.data?.data();
-      final loginIconUrl = data?['login'];
+      final logoUrl = data?['logo'];
+      final nomeCreche = data?['nome_creche'] ?? 'PetDay';
 
-      if (loginIconUrl == null || loginIconUrl.toString().isEmpty) {
-        return const SizedBox.shrink();
-      }
-
-      return Padding(
-        padding: const EdgeInsets.only(right: 12),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(40),
-          onTap: () {
-            Navigator.of(context).pushNamed('/login');
-          },
-          child: Image.network(
-            loginIconUrl,
-            height: 80,
-            width: 80,
-            fit: BoxFit.contain,
-            errorBuilder: (_, __, ___) {
-              return const Icon(
-                Icons.login,
-                color: Colors.brown,
-                size: 40,
-              );
-            },
+      return Row(
+        children: [
+          if (logoUrl != null && logoUrl.isNotEmpty)
+            ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: Image.network(
+                logoUrl,
+                height: 36,
+                width: 36,
+                fit: BoxFit.cover,
+              ),
+            )
+          else
+            const Icon(
+              Icons.pets,
+              color: Color(0xFF1B5E20), // green[900]
+            ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              nomeCreche,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: Color(0xFF00796B),
+                fontWeight: FontWeight.w600,
+              ),
+            ),
           ),
-        ),
+        ],
       );
     },
   ),
-],
 
+  actions: [
+    IconButton(
+      icon: const Icon(Icons.more_vert, color: Colors.brown),
+      onPressed: () {
+        _abrirMenu(context, crecheService);
+      },
+    ),
+  ],
+),
 
-      ),
 
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
@@ -196,6 +168,66 @@ actions: [
     );
   }
 }
+
+/*======================================================
+    ABRE O MENU FLUTUANTE
+  =====================================================*/
+  void _abrirMenu(BuildContext context, CrecheService crecheService) {
+  showModalBottomSheet(
+    context: context,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+    ),
+    builder: (_) {
+      return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+        stream: crecheService.streamCreche(
+          crecheId: AppContext.crecheId,
+        ),
+        builder: (context, snapshot) {
+          final data = snapshot.data?.data();
+          final loginIconUrl = data?['login'];
+
+          return Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 40,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 20),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[400],
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                ),
+
+                ListTile(
+                  leading: loginIconUrl != null && loginIconUrl.isNotEmpty
+                      ? Image.network(
+                          loginIconUrl,
+                          width: 28,
+                          height: 28,
+                        )
+                      : const Icon(Icons.login, color: Colors.teal),
+                  title: const Text(
+                    'Entrar na minha conta',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.of(context).pushNamed('/login');
+                  },
+                ),
+              ],
+            ),
+          );
+        },
+      );
+    },
+  );
+}
+
 
 /* ======================================================
    CARD DE PACOTE
