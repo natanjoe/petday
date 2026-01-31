@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:petday/core/config/app_context.dart';
 import 'package:petday/core/services/creche_service.dart';
 import 'package:petday/core/services/pacote_service.dart';
+import 'package:petday/features/tutor/pagamento/pagamentos_page.dart';
 
 class LandingTutorPage extends StatelessWidget {
   const LandingTutorPage({super.key});
@@ -141,7 +142,13 @@ appBar: AppBar(
                       diarias: data['diarias'],
                       imagemFundoUrl: data['imagem_fundo_url'],
                       onTap: () {
-                        // próximo passo: criar intenção e ir para pagamento
+                        _criarIntencaoEIrParaPagamento(
+                          context: context,
+                          pacoteId: pacotes[index].id,
+                          pacoteNome: data['nome'],
+                          precoFormatado: data['preco_formatado'],
+                          diarias: data['diarias']
+                          );                        
                       },
                     );
                   },
@@ -317,6 +324,50 @@ class _PacoteCard extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+/*===========================================
+    CRIA A INTENÇÃO DE COMPRA DO CLIENTE
+============================================*/
+Future<void> _criarIntencaoEIrParaPagamento({
+  required BuildContext context,
+  required String pacoteId,
+  required String pacoteNome,
+  required String precoFormatado,
+  required int diarias,
+}) async {
+  try {
+    final ref =
+        await FirebaseFirestore.instance.collection('intencoes_compra').add({
+      'creche_id': AppContext.crecheId,
+      'pacote_id': pacoteId,
+      'pacote_nome': pacoteNome,
+      'preco_formatado': precoFormatado,
+      'diarias': diarias,
+      'preferencias': {}, // vazio por enquanto
+      'status': 'criada',
+      'criado_em': FieldValue.serverTimestamp(),
+    });
+
+    if (!context.mounted) return;
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => PagamentosPage(
+          intencaoCompraId: ref.id,
+        ),
+      ),
+    );
+  } catch (e) {
+    debugPrint('Erro ao criar intenção: $e');
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Erro ao iniciar pagamento. Tente novamente.'),
       ),
     );
   }
