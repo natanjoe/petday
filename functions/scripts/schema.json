@@ -1,0 +1,114 @@
+{
+  "agenda_diaria": {
+    "ocupacao": "object"
+  },
+  "configuracoes_creche": {
+    "nome_sistema": "string",
+    "nome_creche": "string",
+    "capacidade_por_porte": "object",
+    "funcionamento": "object",
+    "tipos_reserva": {
+      "type": "array",
+      "items": "string"
+    },
+    "criado_em": "object",
+    "horarios": "object"
+  },
+  "creches": {
+    "criado_em": "object",
+    "nome_creche": "string",
+    "logout": "string",
+    "login": "string",
+    "logo": "string",
+    "sub_configuracoes": {
+      "criado_em": "object",
+      "capacidade_por_porte": "object"
+    },
+    "sub_pacotes": {
+      "ativo": "boolean",
+      "criado_em": "object",
+      "ordem": "number",
+      "diarias": "number",
+      "preco_formatado": "string",
+      "descricao": "string",
+      "nome": "string",
+      "preco_centavos": "number",
+      "imagem_fundo_url": "string"
+    },
+    "sub_pagamentos": {
+      "ativo": "boolean",
+      "moeda": "string",
+      "credenciais": "object",
+      "parcelamento_maximo": "number",
+      "cartao_ativo": "boolean",
+      "gateway": "string",
+      "pix_ativo": "boolean",
+      "pais": "string",
+      "atualizado_em": "object",
+      "criado_em": "object"
+    },
+    "sub_reservas": {
+      "data": "string",
+      "pet_nome": "string",
+      "porte": "string",
+      "tipo_reserva": "string",
+      "origem": "string",
+      "raca_id": "string",
+      "status": "string",
+      "criado_em": "object"
+    }
+  },
+  "intencoes_compra": {
+    "creche_id": "string",
+    "pacote_id": "string",
+    "pacote_nome": "string",
+    "preco_formatado": "string",
+    "diarias": "number",
+    "preferencias": "object",
+    "criado_em": "object",
+    "atualizado_em": "object",
+    "pacote_adquirido_id": "string",
+    "status": "string"
+  },
+  "pacotes_adquiridos": {
+    "tutor_id": "string",
+    "email_pagamento": "string",
+    "creche_id": "string",
+    "pacote_id": "string",
+    "pacote_nome": "string",
+    "preferencias": "object",
+    "diarias_totais": "number",
+    "diarias_usadas": "number",
+    "valor_total_centavos": "number",
+    "criado_em": "object",
+    "atualizado_em": "object",
+    "pagamento": "object",
+    "status": "string"
+  },
+  "racas": {
+    "ativo": "boolean",
+    "criado_em": "object",
+    "nome": "string",
+    "porte": "string",
+    "editavel_pelo_admin": "boolean"
+  },
+  "reservas": {
+    "data": "string",
+    "pet_nome": "string",
+    "porte": "string",
+    "tipo_reserva": "string",
+    "status": "string",
+    "criado_em": "object",
+    "tutor_id": "string",
+    "creche_id": "string",
+    "pacote_adquirido_id": "string",
+    "checkin": "boolean",
+    "origem": "string"
+  },
+  "usuarios": {
+    "nome": "string",
+    "email": "string",
+    "role": "string",
+    "ativo": "boolean"
+  }
+}
