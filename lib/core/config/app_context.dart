@@ -51,7 +51,7 @@ class AppContext {
   ///
   /// Pode ser usado em logout ou troca de tenant
   static void clear() {
-    crecheId = 'auspedagemdakah';
+    crecheId = 'petday_auspedagemdakah';
     crecheSlug = null;
     crecheNome = null;
   }

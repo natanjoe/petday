@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import 'package:petday/core/config/app_context.dart';
+import 'package:petday/core/services/creche_service.dart';
 import 'package:petday/core/services/pacote_service.dart';
 
 class LandingTutorPage extends StatelessWidget {
@@ -10,49 +11,103 @@ class LandingTutorPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final pacoteService = PacoteService();
+    final crecheService = CrecheService();
+
 
     return Scaffold(
       backgroundColor: const Color(0xFFF6F2EC),
-     appBar: AppBar(
+      
+      appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        title: const Row(
-          children: [
-            Icon(Icons.pets, color: Colors.brown),
-            SizedBox(width: 8),
-            Text(
-              'PetDay',
-              style: TextStyle(color: Colors.brown),
-            ),
-          ],
-        ),
-        actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 12),
-            child: TextButton(
-              onPressed: () {
-                Navigator.of(context).pushNamed('/login');
-              },
-              style: TextButton.styleFrom(
-                foregroundColor: Colors.teal,
-                textStyle: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              child: const Text('Login'),
-            ),
+      
+        title: StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+          stream: crecheService.streamCreche(
+            crecheId: AppContext.crecheId,
           ),
-        ],
+
+          builder: (context, snapshot) {
+            final data = snapshot.data?.data();
+            final logoUrl = data?['logo'];
+            final nomeCreche = data?['nome_creche'] ?? 'PetDay';
+
+            return Row(
+              children: [
+                if (logoUrl != null && logoUrl.toString().isNotEmpty)
+                  Image.network(
+                    logoUrl,
+                    height: 36,
+                    width: 36,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) {
+                      return const Icon(Icons.pets, color: Colors.brown);
+                    },
+                  )
+                else
+                  const Icon(Icons.pets, color: Colors.brown),
+
+                const SizedBox(width: 8),
+                Text(
+                  nomeCreche,
+                  style: const TextStyle(
+                    color: Colors.brown,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
+        
+actions: [
+  StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+    stream: crecheService.streamCreche(
+      crecheId: AppContext.crecheId,
+    ),
+    builder: (context, snapshot) {
+      final data = snapshot.data?.data();
+      final loginIconUrl = data?['login'];
+
+      if (loginIconUrl == null || loginIconUrl.toString().isEmpty) {
+        return const SizedBox.shrink();
+      }
+
+      return Padding(
+        padding: const EdgeInsets.only(right: 12),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(40),
+          onTap: () {
+            Navigator.of(context).pushNamed('/login');
+          },
+          child: Image.network(
+            loginIconUrl,
+            height: 80,
+            width: 80,
+            fit: BoxFit.contain,
+            errorBuilder: (_, __, ___) {
+              return const Icon(
+                Icons.login,
+                color: Colors.brown,
+                size: 40,
+              );
+            },
+          ),
+        ),
+      );
+    },
+  ),
+],
+
+
       ),
+
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              'Auspedagem da KAH\n'
-              'Escolha o pacote ideal para o seu pet 🐾',
+              'Escolha o pacote ideal\npara o seu pet 🐾',
               style: TextStyle(
                 fontSize: 26,
                 fontWeight: FontWeight.bold,
@@ -66,6 +121,7 @@ class LandingTutorPage extends StatelessWidget {
             ),
             const SizedBox(height: 24),
 
+            /// LISTA DE PACOTES
             StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
               stream: pacoteService.listarPacotesDaCreche(
                 crecheId: AppContext.crecheId,
@@ -106,7 +162,7 @@ class LandingTutorPage extends StatelessWidget {
                   itemBuilder: (context, index) {
                     final data = pacotes[index].data();
 
-                   return _PacoteCard(
+                    return _PacoteCard(
                       titulo: data['nome'],
                       descricao: data['descricao'],
                       preco: data['preco_formatado'],
@@ -120,36 +176,6 @@ class LandingTutorPage extends StatelessWidget {
                 );
               },
             ),
-
-            const SizedBox(height: 24),
-
-            Center(
-              child: OutlinedButton.icon(
-                onPressed: () {
-                  Navigator.of(context).pushNamed('/login');
-                },
-                icon: const Icon(Icons.login),
-                label: const Text(
-                  'Já sou cliente · Entrar',
-                  style: TextStyle(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 16,
-                  ),
-                ),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: Colors.teal,
-                  side: const BorderSide(color: Colors.teal, width: 2),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 28,
-                    vertical: 14,
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(35), // combina com os cards
-                  ),
-                ),
-              ),
-            ),
-
 
             const SizedBox(height: 32),
             const Center(
@@ -170,6 +196,10 @@ class LandingTutorPage extends StatelessWidget {
     );
   }
 }
+
+/* ======================================================
+   CARD DE PACOTE
+====================================================== */
 
 class _PacoteCard extends StatelessWidget {
   final String titulo;
@@ -196,7 +226,7 @@ class _PacoteCard extends StatelessWidget {
       child: Container(
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(35),
-          image: imagemFundoUrl != null
+          image: imagemFundoUrl != null && imagemFundoUrl!.isNotEmpty
               ? DecorationImage(
                   image: NetworkImage(imagemFundoUrl!),
                   fit: BoxFit.cover,
@@ -212,8 +242,8 @@ class _PacoteCard extends StatelessWidget {
               end: Alignment.bottomCenter,
               colors: [
                 Colors.transparent,
-               Color.fromARGB(120, 0, 0, 0),
-               Color.fromARGB(200, 0, 0, 0),
+                Color.fromARGB(120, 0, 0, 0),
+                Color.fromARGB(200, 0, 0, 0),
               ],
             ),
           ),
@@ -222,11 +252,7 @@ class _PacoteCard extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.end,
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              const Icon(
-                Icons.pets,
-                size: 42,
-                color: Colors.white,
-              ),
+              const Icon(Icons.pets, size: 42, color: Colors.white),
               const SizedBox(height: 8),
               Text(
                 titulo,
