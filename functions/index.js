@@ -31,9 +31,9 @@ exports.criarPagamento = onCall(async (request) => {
     throw new Error("Dados incompletos para pagamento");
   }
 
-  /* ======================================================
-     BUSCAR INTENÇÃO DE COMPRA (FONTE DA VERDADE)
-  ====================================================== */
+  /*
+   *BUSCAR INTENÇÃO DE COMPRA (FONTE DA VERDADE)
+   */
   const intencaoSnap = await db
     .collection("intencoes_compra")
     .doc(intencaoCompraId)
@@ -53,10 +53,10 @@ exports.criarPagamento = onCall(async (request) => {
     throw new Error("Intenção inválida");
   }
 
-  /* ======================================================
-     GATEWAY
-  ====================================================== */
-  const gatewaySnap = await db
+  /*
+   *  GATEWAY
+   */
+/*  const gatewaySnap = await db
     .collection("creches")
     .doc(crecheId)
     .collection("pagamentos")
@@ -68,6 +68,13 @@ exports.criarPagamento = onCall(async (request) => {
   }
 
   const gatewayConfig = gatewaySnap.data();
+*/
+    //gatway temporario
+    let gatewayConfig = {
+      pix_ativo: true,
+      cartao_ativo: false,
+      parcelamento_maximo: 1,
+    };
 
   /* ======================================================
      PACOTE
@@ -118,6 +125,42 @@ exports.criarPagamento = onCall(async (request) => {
   }
 
   /* ======================================================
+   MERCADO PAGO
+  ====================================================== */
+  /*
+    const client = new MercadoPagoConfig({
+      accessToken: process.env.MP_ACCESS_TOKEN,
+    });
+
+    const payment = new Payment(client);
+
+    const paymentData = {
+      transaction_amount: valorCentavos / 100, // número decimal
+      description: `Pacote ${pacote.nome}`,
+      payment_method_id: "pix",
+      payer: {
+        email: emailPagamento,
+      },
+    };
+
+    console.log("MP TOKEN PREFIX:", process.env.MP_ACCESS_TOKEN.slice(0, 5));
+    console.log("VALOR:", paymentData.transaction_amount);
+    console.log("EMAIL:", paymentData.payer.email);
+
+    const pagamentoMP = await payment.create({
+      body: paymentData,
+    });
+
+    console.log("MP RESPONSE STATUS:", pagamentoMP.status);
+    console.log("MP RESPONSE ID:", pagamentoMP.id);
+    console.log(
+      "PIX DATA:",
+      pagamentoMP.point_of_interaction?.transaction_data
+    );
+
+*/
+
+  /* ======================================================
      MERCADO PAGO
   ====================================================== */
   const client = new MercadoPagoConfig({
@@ -125,6 +168,27 @@ exports.criarPagamento = onCall(async (request) => {
   });
 
   const payment = new Payment(client);
+
+
+ const paymentData = {
+      transaction_amount: Number(valor), // ex: 120.00
+      description: "Pacote PetDay",
+      payment_method_id: "pix",
+      payer: {
+        email: emailPagamento,
+      },
+  };
+ 
+  console.log("MP TOKEN PREFIX:", process.env.MP_ACCESS_TOKEN.slice(0, 5));
+  console.log("VALOR:", paymentData.transaction_amount);
+  console.log("EMAIL:", paymentData.payer.email);
+
+  const response = await mercadopago.payment.create(paymentData);
+
+  console.log("MP RESPONSE STATUS:", response.status);
+  console.log("MP RESPONSE BODY:", response.body);
+
+
 
   const pagamentoMP = await payment.create({
     body: {

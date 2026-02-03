@@ -18,8 +18,10 @@
     "criado_em": "object",
     "nome_creche": "string",
     "logout": "string",
-    "login": "string",
     "logo": "string",
+    "login": "string",
+    "slug": "string",
+    "ativo": "boolean",
     "sub_configuracoes": {
       "criado_em": "object",
       "capacidade_por_porte": "object"

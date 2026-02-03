@@ -1,15 +1,17 @@
 import 'package:cloud_functions/cloud_functions.dart';
 
 class PagamentoService {
+  /// ⚠️ IMPORTANTE:
+  /// As Cloud Functions estão em us-central1
   final FirebaseFunctions _functions =
-      FirebaseFunctions.instanceFor(region: 'southamerica-east1');
+      FirebaseFunctions.instanceFor(region: 'us-central1');
 
-  /// Cria um pagamento no backend (Pix ou cartão)
+  /// Cria um pagamento no backend (PIX ou cartão)
   ///
-  /// Retorna um Map com dados do pagamento:
-  /// - qr_code_base64 (Pix)
-  /// - pix_copia_e_cola (Pix)
-  /// - pacoteAdquiridoId (se criado imediatamente)
+  /// Retorna:
+  /// - qr_code_base64 (PIX)
+  /// - pix_copia_e_cola (PIX)
+  /// - pacoteAdquiridoId
   ///
   /// Fonte da verdade:
   /// - intencoes_compra (entrada)
@@ -20,8 +22,7 @@ class PagamentoService {
     required String emailPagamento,
   }) async {
     try {
-      final callable =
-          _functions.httpsCallable('criarPagamento');
+      final callable = _functions.httpsCallable('criarPagamento');
 
       final response = await callable.call({
         'intencaoCompraId': intencaoCompraId,
@@ -29,12 +30,10 @@ class PagamentoService {
         'emailPagamento': emailPagamento,
       });
 
-      final data = Map<String, dynamic>.from(response.data);
-
-      return data;
+      return Map<String, dynamic>.from(response.data);
     } on FirebaseFunctionsException catch (e) {
       throw Exception(
-        e.message ?? 'Erro ao criar pagamento',
+        e.message ?? 'Erro ao criar pagamento no servidor',
       );
     } catch (e) {
       throw Exception('Erro inesperado ao processar pagamento');
