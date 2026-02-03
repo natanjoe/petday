@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:petday/core/config/app_context.dart';
-import 'package:petday/core/services/creche_resolver_service.dart';
 import 'package:petday/features/tutor/landing_tutor_page.dart';
 
 class LandingResolverPage extends StatefulWidget {
@@ -16,49 +16,68 @@ class LandingResolverPage extends StatefulWidget {
 }
 
 class _LandingResolverPageState extends State<LandingResolverPage> {
-  final CrecheResolverService _service = CrecheResolverService();
-
-  String? erro;
 
   @override
   void initState() {
     super.initState();
-    _resolver();
+
+    // 🔍 DEBUG IMPORTANTE
+    debugPrint('LandingResolverPage → slug recebido: ${widget.slug}');
+
+    _resolverSlug();
   }
 
-  Future<void> _resolver() async {
+  Future<void> _resolverSlug() async {
     try {
-      final crecheId = await _service.resolverPorSlug(widget.slug);
+      final snap = await FirebaseFirestore.instance
+          .collection('creches')
+          .where('slug', isEqualTo: widget.slug)
+          .limit(1)
+          .get();
 
-      AppContext.crecheId = crecheId;
+      if (snap.docs.isEmpty) {
+        _falha('Creche não encontrada');
+        return;
+      }
+
+      final doc = snap.docs.first;
+      final data = doc.data();
+
+      // 🔑 seta tenant no contexto (cache em memória)
+      AppContext.setCreche(
+        id: doc.id,
+        slug: data['slug'],
+        nome: data['nome_creche'],
+      );
 
       if (!mounted) return;
 
+      // 🚀 segue para landing real (SEM criar pilha extra)
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(
           builder: (_) => const LandingTutorPage(),
         ),
       );
     } catch (e) {
-      setState(() {
-        erro = e.toString();
-      });
+      debugPrint('Erro ao resolver slug: $e');
+      _falha('Erro ao carregar a creche');
     }
+  }
+
+  void _falha(String mensagem) {
+    if (!mounted) return;
+
+    // 🔁 volta para "/" e passa mensagem
+    Navigator.of(context).pushNamedAndRemoveUntil(
+      '/',
+      (_) => false,
+      arguments: mensagem,
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    if (erro != null) {
-      return Scaffold(
-        body: Center(
-          child: Text(
-            erro!,
-            style: const TextStyle(color: Colors.red),
-          ),
-        ),
-      );
-    }
-
+    // tela técnica (loading enquanto resolve)
     return const Scaffold(
       body: Center(
         child: CircularProgressIndicator(),

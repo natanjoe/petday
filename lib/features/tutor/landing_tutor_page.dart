@@ -6,73 +6,98 @@ import 'package:petday/core/services/creche_service.dart';
 import 'package:petday/core/services/pacote_service.dart';
 import 'package:petday/features/tutor/pagamento/pagamentos_page.dart';
 
-class LandingTutorPage extends StatelessWidget {
+class LandingTutorPage extends StatefulWidget {
   const LandingTutorPage({super.key});
+
+  @override
+  State<LandingTutorPage> createState() => _LandingTutorPageState();
+}
+
+class _LandingTutorPageState extends State<LandingTutorPage> {
+  bool _avisoMostrado = false; // 🔐 garante snackbar apenas uma vez
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+
+    final args = ModalRoute.of(context)?.settings.arguments;
+    if (args is String && !_avisoMostrado) {
+      _avisoMostrado = true;
+
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(args),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final pacoteService = PacoteService();
     final crecheService = CrecheService();
 
-
     return Scaffold(
       backgroundColor: const Color(0xFFF6F2EC),
 
-appBar: AppBar(
-  backgroundColor: Colors.transparent,
-  elevation: 0,
-  title: StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-    stream: crecheService.streamCreche(
-      crecheId: AppContext.crecheId,
-    ),
-    builder: (context, snapshot) {
-      final data = snapshot.data?.data();
-      final logoUrl = data?['logo'];
-      final nomeCreche = data?['nome_creche'] ?? 'PetDay';
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        title: StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+          stream: crecheService.streamCreche(
+            crecheId: AppContext.crecheId,
+          ),
+          builder: (context, snapshot) {
+            final data = snapshot.data?.data();
+            final logoUrl = data?['logo'];
+            final nomeCreche = data?['nome_creche'] ?? 'PetDay';
 
-      return Row(
-        children: [
-          if (logoUrl != null && logoUrl.isNotEmpty)
-            ClipRRect(
-              borderRadius: BorderRadius.circular(8),
-              child: Image.network(
-                logoUrl,
-                height: 36,
-                width: 36,
-                fit: BoxFit.cover,
-              ),
-            )
-          else
-            const Icon(
-              Icons.pets,
-              color: Color(0xFF1B5E20), // green[900]
-            ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              nomeCreche,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: Color(0xFF00796B),
-                fontWeight: FontWeight.w600,
-              ),
-            ),
+            return Row(
+              children: [
+                if (logoUrl != null && logoUrl.isNotEmpty)
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: Image.network(
+                      logoUrl,
+                      height: 36,
+                      width: 36,
+                      fit: BoxFit.cover,
+                    ),
+                  )
+                else
+                  const Icon(
+                    Icons.pets,
+                    color: Color(0xFF1B5E20),
+                  ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    nomeCreche,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Color(0xFF00796B),
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.more_vert, color: Colors.brown),
+            onPressed: () {
+              _abrirMenu(context, crecheService);
+            },
           ),
         ],
-      );
-    },
-  ),
-
-  actions: [
-    IconButton(
-      icon: const Icon(Icons.more_vert, color: Colors.brown),
-      onPressed: () {
-        _abrirMenu(context, crecheService);
-      },
-    ),
-  ],
-),
-
+      ),
 
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
@@ -147,8 +172,8 @@ appBar: AppBar(
                           pacoteId: pacotes[index].id,
                           pacoteNome: data['nome'],
                           precoFormatado: data['preco_formatado'],
-                          diarias: data['diarias']
-                          );                        
+                          diarias: data['diarias'],
+                        );
                       },
                     );
                   },
@@ -157,6 +182,7 @@ appBar: AppBar(
             ),
 
             const SizedBox(height: 32),
+
             const Center(
               child: Column(
                 children: [
@@ -178,8 +204,8 @@ appBar: AppBar(
 
 /*======================================================
     ABRE O MENU FLUTUANTE
-  =====================================================*/
-  void _abrirMenu(BuildContext context, CrecheService crecheService) {
+======================================================*/
+void _abrirMenu(BuildContext context, CrecheService crecheService) {
   showModalBottomSheet(
     context: context,
     shape: const RoundedRectangleBorder(
@@ -208,7 +234,6 @@ appBar: AppBar(
                     borderRadius: BorderRadius.circular(4),
                   ),
                 ),
-
                 ListTile(
                   leading: loginIconUrl != null && loginIconUrl.isNotEmpty
                       ? Image.network(
@@ -235,11 +260,9 @@ appBar: AppBar(
   );
 }
 
-
 /* ======================================================
    CARD DE PACOTE
 ====================================================== */
-
 class _PacoteCard extends StatelessWidget {
   final String titulo;
   final String descricao;
@@ -347,7 +370,7 @@ Future<void> _criarIntencaoEIrParaPagamento({
       'pacote_nome': pacoteNome,
       'preco_formatado': precoFormatado,
       'diarias': diarias,
-      'preferencias': {}, // vazio por enquanto
+      'preferencias': {},
       'status': 'criada',
       'criado_em': FieldValue.serverTimestamp(),
     });
