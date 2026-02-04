@@ -1,35 +1,30 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'home_tutor_pacotes_view.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 
+import 'home_tutor_pacotes_view.dart';
 
 class HomeTutorPage extends StatefulWidget {
   const HomeTutorPage({super.key});
 
   @override
   State<HomeTutorPage> createState() => _HomeTutorPageState();
-
 }
 
 class _HomeTutorPageState extends State<HomeTutorPage> {
   Widget _paginaAtual = const HomeTutorPacotesView();
 
-  /*=========
-    chama a função para associar o pacote comprado ao cliente o inicio da sessão do usuário
-    ======================*/  
   @override
   void initState() {
     super.initState();
     _associarPacotesAoTutor();
   }
 
-
   void _selecionarPagina(Widget pagina) {
     setState(() {
       _paginaAtual = pagina;
     });
-    Navigator.pop(context); // fecha o drawer
+    Navigator.pop(context);
   }
 
   @override
@@ -38,45 +33,75 @@ class _HomeTutorPageState extends State<HomeTutorPage> {
 
     if (user == null) {
       return const Scaffold(
-        body: Center(
-          child: Text('Usuário não autenticado'),
-        ),
+        body: Center(child: Text('Usuário não autenticado')),
       );
     }
 
+    final nome = user.displayName ?? user.email ?? 'Tutor';
+    final foto = user.photoURL;
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text('PetDay • Tutor'),
+        title: const Text('PetDay'),
       ),
 
       drawer: Drawer(
         child: Column(
           children: [
+            /// 🔹 HEADER COM USUÁRIO
             DrawerHeader(
               decoration: const BoxDecoration(
                 color: Color(0xFFEAF5F2),
               ),
               child: Row(
-                children: const [
-                  Icon(
-                    Icons.pets,
-                    color: Colors.teal,
-                    size: 36,
+                children: [
+                  CircleAvatar(
+                    radius: 28,
+                    backgroundColor: Colors.teal.shade100,
+                    backgroundImage:
+                        foto != null ? NetworkImage(foto) : null,
+                    child: foto == null
+                        ? const Icon(
+                            Icons.person,
+                            size: 32,
+                            color: Colors.teal,
+                          )
+                        : null,
                   ),
-                  SizedBox(width: 12),
-                  Text(
-                    'Área do Tutor',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.teal,
+
+                  const SizedBox(width: 12),
+
+                  Expanded(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          nome,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.teal,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        const Text(
+                          'PETDAY • Tutor',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.black54,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ],
               ),
             ),
 
-            /// ÚNICA ENTRADA PRINCIPAL DO TUTOR
+            /// 📦 MENU PRINCIPAL
             ListTile(
               leading: const Icon(Icons.card_membership),
               title: const Text('Meus Pacotes'),
@@ -88,6 +113,7 @@ class _HomeTutorPageState extends State<HomeTutorPage> {
             const Spacer(),
             const Divider(),
 
+            /// 🚪 LOGOUT
             ListTile(
               leading: const Icon(Icons.logout),
               title: const Text('Sair'),
@@ -107,8 +133,8 @@ class _HomeTutorPageState extends State<HomeTutorPage> {
 }
 
 /*====================================
-    ASSOCIA O PACOTE COMPRADO AO USUARIO NA HORA DO LOGIN
-=======================================*/
+  ASSOCIA PACOTES AO TUTOR NO LOGIN
+=====================================*/
 Future<void> _associarPacotesAoTutor() async {
   try {
     final callable = FirebaseFunctions.instance
@@ -123,4 +149,3 @@ Future<void> _associarPacotesAoTutor() async {
     debugPrint('❌ Erro ao associar pacotes: $e');
   }
 }
-
