@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:petday/core/config/app_context.dart';
 import 'package:petday/core/services/creche_service.dart';
+import 'package:petday/features/tutor/pets/meus_pets_page.dart';
 
 import 'home_tutor_pacotes_view.dart';
 
@@ -165,6 +166,15 @@ class _HomeTutorPageState extends State<HomeTutorPage> {
                 const HomeTutorPacotesView(),
               ),
             ),
+            /**Meus PETS */
+            ListTile(
+              leading: const Icon(Icons.pets),
+              title: const Text('Meus Pets'),
+              onTap: () => _selecionarPagina(
+                const MeusPetsPage(),
+              ),
+            ),
+
 
             const Spacer(),
             const Divider(),
@@ -205,3 +215,4 @@ Future<void> _associarPacotesAoTutor() async {
     debugPrint('❌ Erro ao associar pacotes: $e');
   }
 }
+
