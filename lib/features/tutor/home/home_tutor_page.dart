@@ -1,6 +1,9 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_functions/cloud_functions.dart';
+import 'package:petday/core/config/app_context.dart';
+import 'package:petday/core/services/creche_service.dart';
 
 import 'home_tutor_pacotes_view.dart';
 
@@ -41,9 +44,57 @@ class _HomeTutorPageState extends State<HomeTutorPage> {
     final foto = user.photoURL;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('PetDay'),
+     
+     appBar: AppBar(
+  backgroundColor: Colors.white,
+  elevation: 1,
+  title: StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+    stream: CrecheService().streamCreche(
+      crecheId: AppContext.crecheId,
+    ),
+    builder: (context, snapshot) {
+      final data = snapshot.data?.data();
+      final logoUrl = data?['logo'];
+      final nomeCreche = data?['nome_creche'] ?? 'PetDay';
+
+      return Row(
+              children: [
+                if (logoUrl != null && logoUrl.isNotEmpty)
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(6),
+                    child: Image.network(
+                      logoUrl,
+                      width: 34,
+                      height: 34,
+                      fit: BoxFit.cover,
+                    ),
+                  )
+                else
+                  const Icon(
+                    Icons.pets,
+                    color: Colors.teal,
+                    size: 30,
+                  ),
+
+                const SizedBox(width: 10),
+
+                Expanded(
+                  child: Text(
+                    nomeCreche,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Colors.teal,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 18,
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
       ),
+
 
       drawer: Drawer(
         child: Column(
@@ -94,7 +145,12 @@ class _HomeTutorPageState extends State<HomeTutorPage> {
                             color: Colors.black54,
                           ),
                         ),
-                      ],
+                        SizedBox(width: 4),
+                            Icon(
+                              Icons.pets,
+                              size: 14,
+                              color: Colors.teal,
+                        ),                                               ],
                     ),
                   ),
                 ],
