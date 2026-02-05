@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
@@ -26,6 +27,7 @@ class _CadastroPetPageState extends State<CadastroPetPage> {
 
   final ImagePicker _picker = ImagePicker();
   XFile? _imagemSelecionada;
+  Uint8List? _imagemBytesWeb;
 
   String _especie = 'cachorro';
   String? _racaId;
@@ -195,13 +197,10 @@ class _CadastroPetPageState extends State<CadastroPetPage> {
    * ======================= */
   ImageProvider? _buildImageProvider() {
     if (_imagemSelecionada != null) {
-      if (kIsWeb) {
-        return NetworkImage(_imagemSelecionada!.path);
+      if (kIsWeb && _imagemBytesWeb != null) {
+        return MemoryImage(_imagemBytesWeb!);
       } else {
-        return FileImage(
-          // ignore: deprecated_member_use
-          File(_imagemSelecionada!.path),
-        );
+        return FileImage(File(_imagemSelecionada!.path));
       }
     }
 
@@ -225,7 +224,6 @@ class _CadastroPetPageState extends State<CadastroPetPage> {
       String petId;
 
       if (widget.pet == null) {
-        /// CRIAÇÃO
         petId = await _petService.criarPet(
           tutorId: user.uid,
           nome: _nomeController.text.trim(),
@@ -233,7 +231,6 @@ class _CadastroPetPageState extends State<CadastroPetPage> {
           racaId: _racaId!,
         );
       } else {
-        /// EDIÇÃO
         petId = widget.pet!.id;
 
         await _petService.editarPet(
@@ -244,7 +241,6 @@ class _CadastroPetPageState extends State<CadastroPetPage> {
         );
       }
 
-      /// UPLOAD DA IMAGEM (SE EXISTIR)
       if (_imagemSelecionada != null) {
         final imageUrl = await _petService.uploadImagemPet(
           tutorId: user.uid,
@@ -280,9 +276,17 @@ class _CadastroPetPageState extends State<CadastroPetPage> {
     );
 
     if (pickedFile != null) {
-      setState(() {
-        _imagemSelecionada = pickedFile;
-      });
+      if (kIsWeb) {
+        final bytes = await pickedFile.readAsBytes();
+        setState(() {
+          _imagemSelecionada = pickedFile;
+          _imagemBytesWeb = bytes;
+        });
+      } else {
+        setState(() {
+          _imagemSelecionada = pickedFile;
+        });
+      }
     }
   }
 }
