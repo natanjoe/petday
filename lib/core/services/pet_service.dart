@@ -1,4 +1,9 @@
+import 'dart:io';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_storage/firebase_storage.dart';
+import 'package:flutter/foundation.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:petday/model/pet_model.dart';
 
 class PetService {
@@ -7,7 +12,7 @@ class PetService {
   /* ==============================
    * CRIAR PET
    * ============================== */
-  Future<void> criarPet({
+  Future<String> criarPet({
     required String tutorId,
     required String nome,
     required String especie,
@@ -15,7 +20,7 @@ class PetService {
   }) async {
     final porte = await _inferirPorte(racaId);
 
-    await _firestore.collection('pets').add({
+    final docRef = await _firestore.collection('pets').add({
       'tutor_id': tutorId,
       'nome': nome,
       'especie': especie,
@@ -23,7 +28,10 @@ class PetService {
       'porte': porte,
       'ativo': true,
       'criado_em': FieldValue.serverTimestamp(),
+      'pet_image_url': null,
     });
+
+    return docRef.id;
   }
 
   /* ==============================
@@ -36,13 +44,13 @@ class PetService {
         .where('ativo', isEqualTo: true)
         .snapshots()
         .map((snapshot) {
-          return snapshot.docs.map((doc) {
-            return PetModel.fromFirestore(
-              doc.id,
-              doc.data(),
-            );
-          }).toList();
-        });
+      return snapshot.docs.map((doc) {
+        return PetModel.fromFirestore(
+          doc.id,
+          doc.data(),
+        );
+      }).toList();
+    });
   }
 
   /* ==============================
@@ -53,6 +61,52 @@ class PetService {
         .collection('pets')
         .doc(petId)
         .update({'ativo': false});
+  }
+
+  /* ==============================
+   * EDITAR PET
+   * ============================== */
+  Future<void> editarPet({
+    required String petId,
+    required String nome,
+    required String especie,
+    required String racaId,
+  }) async {
+    final porte = await _inferirPorte(racaId);
+
+    await _firestore.collection('pets').doc(petId).update({
+      'nome': nome,
+      'especie': especie,
+      'raca_id': racaId,
+      'porte': porte,
+    });
+  }
+
+  /* ==============================
+   * UPLOAD DA IMAGEM DO PET
+   * (WEB + MOBILE)
+   * ============================== */
+  Future<String> uploadImagemPet({
+    required String tutorId,
+    required String petId,
+    required XFile imageFile,
+  }) async {
+    final ref = FirebaseStorage.instance
+        .ref()
+        .child('pets')
+        .child(tutorId)
+        .child('$petId.jpg');
+
+    if (kIsWeb) {
+      // 🌐 Flutter Web
+      final bytes = await imageFile.readAsBytes();
+      await ref.putData(bytes);
+    } else {
+      // 📱 Android / iOS
+      await ref.putFile(File(imageFile.path));
+    }
+
+    return await ref.getDownloadURL();
   }
 
   /* ==============================

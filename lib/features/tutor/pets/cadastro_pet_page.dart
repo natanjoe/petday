@@ -1,11 +1,20 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:petday/core/services/pet_service.dart';
-
+import 'package:petday/model/pet_model.dart';
 
 class CadastroPetPage extends StatefulWidget {
-  const CadastroPetPage({super.key});
+  final PetModel? pet;
+
+  const CadastroPetPage({
+    super.key,
+    this.pet,
+  });
 
   @override
   State<CadastroPetPage> createState() => _CadastroPetPageState();
@@ -15,6 +24,9 @@ class _CadastroPetPageState extends State<CadastroPetPage> {
   final _formKey = GlobalKey<FormState>();
   final _nomeController = TextEditingController();
 
+  final ImagePicker _picker = ImagePicker();
+  XFile? _imagemSelecionada;
+
   String _especie = 'cachorro';
   String? _racaId;
   bool _loading = false;
@@ -22,10 +34,23 @@ class _CadastroPetPageState extends State<CadastroPetPage> {
   final PetService _petService = PetService();
 
   @override
+  void initState() {
+    super.initState();
+
+    if (widget.pet != null) {
+      _nomeController.text = widget.pet!.nome;
+      _especie = widget.pet!.especie;
+      _racaId = widget.pet!.racaId;
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final isEdicao = widget.pet != null;
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Cadastrar Pet'),
+        title: Text(isEdicao ? 'Editar Pet' : 'Cadastrar Pet'),
       ),
       body: Padding(
         padding: const EdgeInsets.all(16),
@@ -33,7 +58,29 @@ class _CadastroPetPageState extends State<CadastroPetPage> {
           key: _formKey,
           child: ListView(
             children: [
-              /// Nome do Pet
+              /// FOTO DO PET
+              Center(
+                child: GestureDetector(
+                  onTap: _selecionarImagem,
+                  child: CircleAvatar(
+                    radius: 48,
+                    backgroundColor: Colors.teal.shade100,
+                    backgroundImage: _buildImageProvider(),
+                    child: _imagemSelecionada == null &&
+                            widget.pet?.imageUrl == null
+                        ? const Icon(
+                            Icons.pets,
+                            size: 40,
+                            color: Colors.teal,
+                          )
+                        : null,
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 16),
+
+              /// NOME
               TextFormField(
                 controller: _nomeController,
                 decoration: const InputDecoration(
@@ -49,7 +96,7 @@ class _CadastroPetPageState extends State<CadastroPetPage> {
 
               const SizedBox(height: 16),
 
-              /// Espécie
+              /// ESPÉCIE
               DropdownButtonFormField<String>(
                 value: _especie,
                 decoration: const InputDecoration(
@@ -68,14 +115,14 @@ class _CadastroPetPageState extends State<CadastroPetPage> {
                 onChanged: (value) {
                   setState(() {
                     _especie = value!;
-                    _racaId = null; // reset raça
+                    _racaId = null;
                   });
                 },
               ),
 
               const SizedBox(height: 16),
 
-              /// Raça (dinâmica)
+              /// RAÇA (DINÂMICA)
               StreamBuilder<QuerySnapshot>(
                 stream: FirebaseFirestore.instance
                     .collection('racas')
@@ -83,8 +130,16 @@ class _CadastroPetPageState extends State<CadastroPetPage> {
                     .orderBy('nome')
                     .snapshots(),
                 builder: (context, snapshot) {
-                  if (!snapshot.hasData) {
-                    return const CircularProgressIndicator();
+                  if (snapshot.connectionState ==
+                      ConnectionState.waiting) {
+                    return const Center(
+                      child: CircularProgressIndicator(),
+                    );
+                  }
+
+                  if (!snapshot.hasData ||
+                      snapshot.data!.docs.isEmpty) {
+                    return const Text('Nenhuma raça disponível');
                   }
 
                   final racas = snapshot.data!.docs;
@@ -117,12 +172,16 @@ class _CadastroPetPageState extends State<CadastroPetPage> {
 
               const SizedBox(height: 32),
 
-              /// Botão Salvar
+              /// BOTÃO SALVAR
               ElevatedButton(
                 onPressed: _loading ? null : _salvarPet,
                 child: _loading
                     ? const CircularProgressIndicator()
-                    : const Text('Salvar pet'),
+                    : Text(
+                        isEdicao
+                            ? 'Salvar alterações'
+                            : 'Salvar pet',
+                      ),
               ),
             ],
           ),
@@ -131,6 +190,31 @@ class _CadastroPetPageState extends State<CadastroPetPage> {
     );
   }
 
+  /* =======================
+   * IMAGE PROVIDER (WEB + MOBILE)
+   * ======================= */
+  ImageProvider? _buildImageProvider() {
+    if (_imagemSelecionada != null) {
+      if (kIsWeb) {
+        return NetworkImage(_imagemSelecionada!.path);
+      } else {
+        return FileImage(
+          // ignore: deprecated_member_use
+          File(_imagemSelecionada!.path),
+        );
+      }
+    }
+
+    if (widget.pet?.imageUrl != null) {
+      return NetworkImage(widget.pet!.imageUrl!);
+    }
+
+    return null;
+  }
+
+  /* =======================
+   * SALVAR PET (CRIAR / EDITAR)
+   * ======================= */
   Future<void> _salvarPet() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -138,12 +222,41 @@ class _CadastroPetPageState extends State<CadastroPetPage> {
 
     try {
       final user = FirebaseAuth.instance.currentUser!;
-      await _petService.criarPet(
-        tutorId: user.uid,
-        nome: _nomeController.text.trim(),
-        especie: _especie,
-        racaId: _racaId!,
-      );
+      String petId;
+
+      if (widget.pet == null) {
+        /// CRIAÇÃO
+        petId = await _petService.criarPet(
+          tutorId: user.uid,
+          nome: _nomeController.text.trim(),
+          especie: _especie,
+          racaId: _racaId!,
+        );
+      } else {
+        /// EDIÇÃO
+        petId = widget.pet!.id;
+
+        await _petService.editarPet(
+          petId: petId,
+          nome: _nomeController.text.trim(),
+          especie: _especie,
+          racaId: _racaId!,
+        );
+      }
+
+      /// UPLOAD DA IMAGEM (SE EXISTIR)
+      if (_imagemSelecionada != null) {
+        final imageUrl = await _petService.uploadImagemPet(
+          tutorId: user.uid,
+          petId: petId,
+          imageFile: _imagemSelecionada!,
+        );
+
+        await FirebaseFirestore.instance
+            .collection('pets')
+            .doc(petId)
+            .update({'pet_image_url': imageUrl});
+      }
 
       if (mounted) {
         Navigator.pop(context, true);
@@ -154,6 +267,22 @@ class _CadastroPetPageState extends State<CadastroPetPage> {
       );
     } finally {
       if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  /* =======================
+   * SELECIONAR IMAGEM
+   * ======================= */
+  Future<void> _selecionarImagem() async {
+    final pickedFile = await _picker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 70,
+    );
+
+    if (pickedFile != null) {
+      setState(() {
+        _imagemSelecionada = pickedFile;
+      });
     }
   }
 }

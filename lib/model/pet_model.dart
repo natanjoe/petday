@@ -10,6 +10,9 @@ class PetModel {
   final bool ativo;
   final DateTime criadoEm;
 
+  /// 🔹 NOVO (OPCIONAL)
+  final String? imageUrl;
+
   PetModel({
     required this.id,
     required this.tutorId,
@@ -19,6 +22,7 @@ class PetModel {
     required this.porte,
     required this.ativo,
     required this.criadoEm,
+    this.imageUrl,
   });
 
   factory PetModel.fromFirestore(
@@ -34,6 +38,9 @@ class PetModel {
       porte: data['porte'],
       ativo: data['ativo'] ?? true,
       criadoEm: (data['criado_em'] as Timestamp).toDate(),
+
+      /// 🔹 NOVO (PODE SER NULL)
+      imageUrl: data['pet_image_url'],
     );
   }
 
@@ -46,6 +53,9 @@ class PetModel {
       'porte': porte,
       'ativo': ativo,
       'criado_em': FieldValue.serverTimestamp(),
+
+      /// 🔹 NOVO (SÓ SE EXISTIR)
+      if (imageUrl != null) 'pet_image_url': imageUrl,
     };
   }
 }
