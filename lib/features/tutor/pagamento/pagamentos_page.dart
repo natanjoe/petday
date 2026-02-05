@@ -2,8 +2,10 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:petday/core/services/pagamento_service.dart';
 import 'package:flutter/services.dart';
+
+import 'package:petday/core/services/pagamento_service.dart';
+import 'package:petday/core/config/app_context.dart';
 
 class PagamentosPage extends StatefulWidget {
   final String intencaoCompraId;
@@ -28,46 +30,57 @@ class _PagamentosPageState extends State<PagamentosPage> {
   String? pixCopiaECola;
 
   Map<String, dynamic>? intencao;
+  Map<String, dynamic>? pacote;
 
-  // controle do pagamento
   String? pacoteAdquiridoId;
   bool pagamentoCriado = false;
   bool pagamentoConfirmado = false;
 
-  // listener real do Firestore
   StreamSubscription<DocumentSnapshot>? _pacoteSubscription;
 
   @override
   void initState() {
     super.initState();
-    _carregarIntencao();
+    _carregarDados();
   }
 
   /* ======================================================
-     CARREGA INTENÇÃO DE COMPRA
+     CARREGA INTENÇÃO + PACOTE
   ====================================================== */
-  Future<void> _carregarIntencao() async {
+  Future<void> _carregarDados() async {
     try {
-      final doc = await FirebaseFirestore.instance
+      final intencaoSnap = await FirebaseFirestore.instance
           .collection('intencoes_compra')
           .doc(widget.intencaoCompraId)
           .get();
 
-      if (!doc.exists) {
-        setState(() {
-          erro = 'Intenção de compra não encontrada';
-        });
+      if (!intencaoSnap.exists) {
+        setState(() => erro = 'Intenção de compra não encontrada');
+        return;
+      }
+
+      final intencaoData = intencaoSnap.data()!;
+      final pacoteId = intencaoData['pacote_id'];
+
+      final pacoteSnap = await FirebaseFirestore.instance
+          .collection('creches')
+          .doc(AppContext.crecheId)
+          .collection('pacotes')
+          .doc(pacoteId)
+          .get();
+
+      if (!pacoteSnap.exists) {
+        setState(() => erro = 'Pacote não encontrado');
         return;
       }
 
       setState(() {
-        intencao = doc.data();
+        intencao = intencaoData;
+        pacote = pacoteSnap.data();
       });
     } catch (e) {
-      debugPrint('Erro ao carregar intenção: $e');
-      setState(() {
-        erro = 'Erro ao carregar dados do pagamento';
-      });
+      debugPrint('Erro ao carregar dados: $e');
+      setState(() => erro = 'Erro ao carregar pagamento');
     }
   }
 
@@ -78,16 +91,13 @@ class _PagamentosPageState extends State<PagamentosPage> {
     final email = _emailController.text.trim();
 
     if (email.isEmpty || !email.contains('@')) {
-      setState(() {
-        erro = 'Informe um email válido para o pagamento';
-      });
+      setState(() => erro = 'Informe um email válido');
       return;
     }
 
     setState(() {
       carregando = true;
       erro = null;
-      qrCodePix = null;
     });
 
     try {
@@ -97,16 +107,9 @@ class _PagamentosPageState extends State<PagamentosPage> {
         emailPagamento: email,
       );
 
-      final base64 = resultado['pix_qr_code_base64'];
-      final copiaCola = resultado['pix_copia_e_cola'];
-
-      if (base64 == null || copiaCola == null) {
-        throw Exception('Dados do PIX não retornados');
-      }
-
       setState(() {
-        qrCodePix = base64Decode(base64);
-        pixCopiaECola = copiaCola;
+        qrCodePix = base64Decode(resultado['pix_qr_code_base64']);
+        pixCopiaECola = resultado['pix_copia_e_cola'];
         pacoteAdquiridoId = resultado['pacoteAdquiridoId'];
         pagamentoCriado = true;
       });
@@ -114,18 +117,14 @@ class _PagamentosPageState extends State<PagamentosPage> {
       _iniciarListenerPagamento();
     } catch (e) {
       debugPrint('Erro ao pagar: $e');
-      setState(() {
-        erro = 'Erro ao processar pagamento. Tente novamente.';
-      });
+      setState(() => erro = 'Erro ao processar pagamento');
     } finally {
-      setState(() {
-        carregando = false;
-      });
+      setState(() => carregando = false);
     }
   }
 
   /* ======================================================
-     LISTENER DO STATUS DO PAGAMENTO
+     LISTENER STATUS PAGAMENTO
   ====================================================== */
   void _iniciarListenerPagamento() {
     if (pacoteAdquiridoId == null) return;
@@ -139,29 +138,19 @@ class _PagamentosPageState extends State<PagamentosPage> {
         .listen((snapshot) async {
       if (!snapshot.exists || !mounted) return;
 
-      final data = snapshot.data() as Map<String, dynamic>;
-      final statusPacote = data['status'];
-      final statusPagamento = data['pagamento']?['status'];
-
-      final confirmado =
-          statusPacote == 'ativo' || statusPagamento == 'approved';
-
-      if (confirmado && !pagamentoConfirmado) {
+      final data = snapshot.data()!;
+      if (data['status'] == 'ativo' && !pagamentoConfirmado) {
         pagamentoConfirmado = true;
 
-        // mostra popup e aguarda resposta
         final ok = await _mostrarPopupPagamentoConfirmado();
-
         if (ok == true && mounted) {
-          _redirecionarParaLogin();
+          Navigator.of(context)
+              .pushNamedAndRemoveUntil('/login', (_) => false);
         }
       }
     });
   }
 
-  /* ======================================================
-     POPUP DE CONFIRMAÇÃO
-  ====================================================== */
   Future<bool?> _mostrarPopupPagamentoConfirmado() {
     return showDialog<bool>(
       context: context,
@@ -169,28 +158,15 @@ class _PagamentosPageState extends State<PagamentosPage> {
       builder: (_) => AlertDialog(
         title: const Text('Pagamento confirmado 🎉'),
         content: const Text(
-          'Recebemos seu pagamento com sucesso.\n\n'
-          'Faça login para continuar.',
+          'Recebemos seu pagamento com sucesso.\n\nFaça login para continuar.',
         ),
         actions: [
           TextButton(
-            onPressed: () {
-              Navigator.of(context).pop(true);
-            },
+            onPressed: () => Navigator.pop(context, true),
             child: const Text('OK'),
           ),
         ],
       ),
-    );
-  }
-
-  /* ======================================================
-     REDIRECIONAMENTO FINAL
-  ====================================================== */
-  void _redirecionarParaLogin() {
-    Navigator.of(context).pushNamedAndRemoveUntil(
-      '/login',
-      (_) => false,
     );
   }
 
@@ -206,7 +182,7 @@ class _PagamentosPageState extends State<PagamentosPage> {
   ====================================================== */
   @override
   Widget build(BuildContext context) {
-    if (intencao == null) {
+    if (intencao == null || pacote == null) {
       return Scaffold(
         body: Center(
           child: erro != null
@@ -216,118 +192,146 @@ class _PagamentosPageState extends State<PagamentosPage> {
       );
     }
 
+    final preco = formatarPreco(pacote!['preco_centavos']);
+    final imagemUrl = pacote!['imagem_fundo_url'];
+
     return Scaffold(
       appBar: AppBar(title: const Text('Pagamento')),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            /// RESUMO
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      intencao!['pacote_nome'] ?? 'Pacote',
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 420),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              children: [
+                /// CARD DO PACOTE
+                Card(
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  elevation: 4,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      if (imagemUrl != null && imagemUrl.isNotEmpty)
+                        ClipRRect(
+                          borderRadius: const BorderRadius.vertical(
+                            top: Radius.circular(20),
+                          ),
+                          child: Image.network(
+                            imagemUrl,
+                            height: 180,
+                            fit: BoxFit.cover,
+                          ),
+                        ),
+                      Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              pacote!['nome'],
+                              style: const TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              preco,
+                              style: const TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.teal,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(intencao!['preco_formatado'] ?? ''),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-            ),
 
-            const SizedBox(height: 24),
+                const SizedBox(height: 24),
 
-            /// EMAIL
-            const Text('Email para o pagamento',
-                style: TextStyle(fontWeight: FontWeight.bold)),
-            const SizedBox(height: 8),
-
-            TextField(
-              controller: _emailController,
-              keyboardType: TextInputType.emailAddress,
-              decoration: const InputDecoration(
-                hintText: 'ex: joao@email.com',
-                border: OutlineInputBorder(),
-              ),
-            ),
-
-            const SizedBox(height: 24),
-
-            if (erro != null)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: Text(erro!, style: const TextStyle(color: Colors.red)),
-              ),
-
-            if (qrCodePix != null) ...[
-              const SizedBox(height: 16),
-              const Center(
-                child: Text('Escaneie o QR Code',
-                    style: TextStyle(fontWeight: FontWeight.bold)),
-              ),
-              const SizedBox(height: 12),
-              Center(
-                child: Image.memory(qrCodePix!, width: 220, height: 220),
-              ),
-            ],
-
-            if (pixCopiaECola != null) ...[
-              const SizedBox(height: 16),
-              const Text('Ou copie o código PIX:',
-                  style: TextStyle(fontWeight: FontWeight.bold)),
-              const SizedBox(height: 8),
-              SelectableText(pixCopiaECola!,
-                  style: const TextStyle(fontSize: 12)),
-              const SizedBox(height: 8),
-              OutlinedButton.icon(
-                icon: const Icon(Icons.copy),
-                label: const Text('Copiar código PIX'),
-                onPressed: () {
-                  Clipboard.setData(
-                    ClipboardData(text: pixCopiaECola!),
-                  );
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Código PIX copiado')),
-                  );
-                },
-              ),
-            ],
-
-            if (pagamentoCriado)
-              const Padding(
-                padding: EdgeInsets.only(top: 16),
-                child: Center(
-                  child: Text(
-                    'Aguardando confirmação do pagamento...',
+                /// EMAIL
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: const Text(
+                    'Email para o pagamento',
                     style: TextStyle(fontWeight: FontWeight.bold),
                   ),
                 ),
-              ),
+                const SizedBox(height: 8),
 
-            const SizedBox(height: 24),
-
-            if (!pagamentoCriado)
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: carregando ? null : _pagar,
-                  child: carregando
-                      ? const CircularProgressIndicator()
-                      : const Text('Pagar'),
+                TextField(
+                  controller: _emailController,
+                  keyboardType: TextInputType.emailAddress,
+                  decoration: const InputDecoration(
+                    hintText: 'ex: joao@email.com',
+                    border: OutlineInputBorder(),
+                  ),
                 ),
-              ),
-          ],
+
+                const SizedBox(height: 16),
+
+                if (erro != null)
+                  Text(erro!, style: const TextStyle(color: Colors.red)),
+
+                if (qrCodePix != null) ...[
+                  const SizedBox(height: 24),
+                  Image.memory(qrCodePix!, width: 220),
+                ],
+
+                if (pixCopiaECola != null) ...[
+                  const SizedBox(height: 12),
+                  SelectableText(pixCopiaECola!,
+                      style: const TextStyle(fontSize: 12)),
+                  OutlinedButton.icon(
+                    icon: const Icon(Icons.copy),
+                    label: const Text('Copiar PIX'),
+                    onPressed: () {
+                      Clipboard.setData(
+                        ClipboardData(text: pixCopiaECola!),
+                      );
+                    },
+                  ),
+                ],
+
+                const SizedBox(height: 24),
+
+                if (!pagamentoCriado)
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: carregando ? null : _pagar,
+                      child: carregando
+                          ? const CircularProgressIndicator()
+                          : const Text('Pagar'),
+                    ),
+                  ),
+
+                if (pagamentoCriado)
+                  const Padding(
+                    padding: EdgeInsets.only(top: 16),
+                    child: Text(
+                      'Aguardando confirmação do pagamento...',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                  ),
+              ],
+            ),
+          ),
         ),
       ),
     );
   }
+}
+
+/* ======================================================
+   FORMATADOR DE PREÇO
+====================================================== */
+String formatarPreco(int precoCentavos) {
+  final valor = precoCentavos / 100;
+  return 'R\$ ${valor.toStringAsFixed(2).replaceAll('.', ',')}';
 }

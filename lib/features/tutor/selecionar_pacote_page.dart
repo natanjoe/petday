@@ -13,7 +13,6 @@ class SelecionarPacotePage extends StatefulWidget {
 class _SelecionarPacotePageState extends State<SelecionarPacotePage> {
   String? pacoteId;
   String? pacoteNome;
-  String? precoFormatado;
 
   String? racaId;
   String? racaNome;
@@ -24,7 +23,7 @@ class _SelecionarPacotePageState extends State<SelecionarPacotePage> {
   String? erro;
 
   /* ======================================================
-     CRIAR INTENÇÃO DE COMPRA
+     CRIAR INTENÇÃO DE COMPRA (LIMPA)
   ====================================================== */
   Future<void> _continuar() async {
     if (pacoteId == null || racaId == null) {
@@ -45,12 +44,12 @@ class _SelecionarPacotePageState extends State<SelecionarPacotePage> {
         'creche_id': AppContext.crecheId,
         'pacote_id': pacoteId,
         'pacote_nome': pacoteNome,
-        'preco_formatado': precoFormatado,
         'preferencias': {
           'raca_id': racaId,
           'raca_nome': racaNome,
           'datas_pre_selecionadas': datasSelecionadas.toList(),
         },
+        'status': 'criada',
         'criado_em': FieldValue.serverTimestamp(),
       });
 
@@ -62,7 +61,7 @@ class _SelecionarPacotePageState extends State<SelecionarPacotePage> {
           builder: (_) => PagamentosPage(intencaoCompraId: ref.id),
         ),
       );
-    } catch (_) {
+    } catch (e) {
       setState(() {
         erro = 'Erro ao continuar. Tente novamente.';
       });
@@ -139,7 +138,7 @@ class _SelecionarPacotePageState extends State<SelecionarPacotePage> {
   }
 
   /* ======================================================
-     COMPONENTES VISUAIS
+     COMPONENTES
   ====================================================== */
 
   Widget _titulo(String texto) {
@@ -163,6 +162,7 @@ class _SelecionarPacotePageState extends State<SelecionarPacotePage> {
           .doc(AppContext.crecheId)
           .collection('pacotes')
           .where('ativo', isEqualTo: true)
+          .orderBy('ordem')
           .snapshots(),
       builder: (context, snapshot) {
         if (!snapshot.hasData) {
@@ -174,30 +174,48 @@ class _SelecionarPacotePageState extends State<SelecionarPacotePage> {
             final data = doc.data() as Map<String, dynamic>;
             final selecionado = pacoteId == doc.id;
 
+            final int precoCentavos = data['preco_centavos'];
+            final String preco = formatarPreco(precoCentavos);
+
             return InkWell(
               onTap: () {
                 setState(() {
                   pacoteId = doc.id;
                   pacoteNome = data['nome'];
-                  precoFormatado = data['preco_formatado'];
                 });
               },
               borderRadius: BorderRadius.circular(16),
               child: Container(
                 margin: const EdgeInsets.only(bottom: 12),
-                padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: selecionado
-                      ? const Color(0xFFDCE9D5)
-                      : const Color(0xFFEAF5F2),
                   borderRadius: BorderRadius.circular(16),
                   border: selecionado
                       ? Border.all(color: Colors.teal, width: 2)
                       : null,
+                  color: selecionado
+                      ? const Color(0xFFDCE9D5)
+                      : const Color(0xFFEAF5F2),
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.pets, color: Colors.brown, size: 36),
+                    if (data['imagem_fundo_url'] != null)
+                      ClipRRect(
+                        borderRadius: const BorderRadius.horizontal(
+                          left: Radius.circular(16),
+                        ),
+                        child: Image.network(
+                          data['imagem_fundo_url'],
+                          width: 90,
+                          height: 90,
+                          fit: BoxFit.cover,
+                        ),
+                      )
+                    else
+                      const SizedBox(
+                        width: 90,
+                        height: 90,
+                        child: Icon(Icons.pets, size: 40),
+                      ),
                     const SizedBox(width: 16),
                     Expanded(
                       child: Column(
@@ -210,15 +228,23 @@ class _SelecionarPacotePageState extends State<SelecionarPacotePage> {
                               fontWeight: FontWeight.bold,
                             ),
                           ),
-                          const SizedBox(height: 4),
-                          Text(data['preco_formatado'] ?? ''),
+                          const SizedBox(height: 6),
+                          Text(
+                            '$preco • ${data['diarias']} diárias',
+                            style: const TextStyle(
+                              color: Colors.black87,
+                            ),
+                          ),
                         ],
                       ),
                     ),
                     if (selecionado)
-                      const Icon(
-                        Icons.check_circle,
-                        color: Colors.teal,
+                      const Padding(
+                        padding: EdgeInsets.only(right: 12),
+                        child: Icon(
+                          Icons.check_circle,
+                          color: Colors.teal,
+                        ),
                       ),
                   ],
                 ),
@@ -242,6 +268,7 @@ class _SelecionarPacotePageState extends State<SelecionarPacotePage> {
         }
 
         return DropdownButtonFormField<String>(
+          value: racaId,
           decoration: InputDecoration(
             filled: true,
             fillColor: Colors.white,
@@ -250,7 +277,6 @@ class _SelecionarPacotePageState extends State<SelecionarPacotePage> {
             ),
             hintText: 'Selecione a raça',
           ),
-          value: racaId,
           items: snapshot.data!.docs.map((doc) {
             final data = doc.data() as Map<String, dynamic>;
             return DropdownMenuItem(
@@ -297,4 +323,12 @@ class _SelecionarPacotePageState extends State<SelecionarPacotePage> {
       }),
     );
   }
+}
+
+/* ======================================================
+   FORMATA PREÇO (UI)
+====================================================== */
+String formatarPreco(int precoCentavos) {
+  final valor = precoCentavos / 100;
+  return 'R\$ ${valor.toStringAsFixed(2).replaceAll('.', ',')}';
 }

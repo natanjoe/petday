@@ -14,7 +14,7 @@ class LandingTutorPage extends StatefulWidget {
 }
 
 class _LandingTutorPageState extends State<LandingTutorPage> {
-  bool _avisoMostrado = false; // 🔐 garante snackbar apenas uma vez
+  bool _avisoMostrado = false;
 
   @override
   void didChangeDependencies() {
@@ -70,10 +70,7 @@ class _LandingTutorPageState extends State<LandingTutorPage> {
                     ),
                   )
                 else
-                  const Icon(
-                    Icons.pets,
-                    color: Color(0xFF1B5E20),
-                  ),
+                  const Icon(Icons.pets, color: Color(0xFF1B5E20)),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
@@ -92,9 +89,7 @@ class _LandingTutorPageState extends State<LandingTutorPage> {
         actions: [
           IconButton(
             icon: const Icon(Icons.more_vert, color: Colors.brown),
-            onPressed: () {
-              _abrirMenu(context, crecheService);
-            },
+            onPressed: () => _abrirMenu(context, crecheService),
           ),
         ],
       ),
@@ -160,19 +155,18 @@ class _LandingTutorPageState extends State<LandingTutorPage> {
                   itemBuilder: (context, index) {
                     final data = pacotes[index].data();
 
+                    final int precoCentavos = data['preco_centavos'];
+
                     return _PacoteCard(
                       titulo: data['nome'],
                       descricao: data['descricao'],
-                      preco: data['preco_formatado'],
+                      preco: formatarPreco(precoCentavos),
                       diarias: data['diarias'],
                       imagemFundoUrl: data['imagem_fundo_url'],
                       onTap: () {
                         _criarIntencaoEIrParaPagamento(
                           context: context,
                           pacoteId: pacotes[index].id,
-                          pacoteNome: data['nome'],
-                          precoFormatado: data['preco_formatado'],
-                          diarias: data['diarias'],
                         );
                       },
                     );
@@ -203,7 +197,7 @@ class _LandingTutorPageState extends State<LandingTutorPage> {
 }
 
 /*======================================================
-    ABRE O MENU FLUTUANTE
+    MENU
 ======================================================*/
 void _abrirMenu(BuildContext context, CrecheService crecheService) {
   showModalBottomSheet(
@@ -236,11 +230,7 @@ void _abrirMenu(BuildContext context, CrecheService crecheService) {
                 ),
                 ListTile(
                   leading: loginIconUrl != null && loginIconUrl.isNotEmpty
-                      ? Image.network(
-                          loginIconUrl,
-                          width: 28,
-                          height: 28,
-                        )
+                      ? Image.network(loginIconUrl, width: 28, height: 28)
                       : const Icon(Icons.login, color: Colors.teal),
                   title: const Text(
                     'Entrar na minha conta',
@@ -312,7 +302,6 @@ class _PacoteCard extends StatelessWidget {
           padding: const EdgeInsets.all(16),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.end,
-            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               const Icon(Icons.pets, size: 42, color: Colors.white),
               const SizedBox(height: 8),
@@ -337,7 +326,6 @@ class _PacoteCard extends StatelessWidget {
               const SizedBox(height: 10),
               Text(
                 '$preco • $diarias diárias',
-                textAlign: TextAlign.center,
                 style: const TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
@@ -353,25 +341,20 @@ class _PacoteCard extends StatelessWidget {
 }
 
 /*===========================================
-    CRIA A INTENÇÃO DE COMPRA DO CLIENTE
+    INTENÇÃO DE COMPRA (LIMPA)
 ============================================*/
 Future<void> _criarIntencaoEIrParaPagamento({
   required BuildContext context,
   required String pacoteId,
-  required String pacoteNome,
-  required String precoFormatado,
-  required int diarias,
 }) async {
   try {
-    final ref =
-        await FirebaseFirestore.instance.collection('intencoes_compra').add({
+    final ref = await FirebaseFirestore.instance
+        .collection('intencoes_compra')
+        .add({
       'creche_id': AppContext.crecheId,
       'pacote_id': pacoteId,
-      'pacote_nome': pacoteNome,
-      'preco_formatado': precoFormatado,
-      'diarias': diarias,
-      'preferencias': {},
       'status': 'criada',
+      'preferencias': {},
       'criado_em': FieldValue.serverTimestamp(),
     });
 
@@ -394,4 +377,12 @@ Future<void> _criarIntencaoEIrParaPagamento({
       ),
     );
   }
+}
+
+/*===========================================
+    FORMATA PREÇO (APENAS UI)
+============================================*/
+String formatarPreco(int precoCentavos) {
+  final valor = precoCentavos / 100;
+  return 'R\$ ${valor.toStringAsFixed(2).replaceAll('.', ',')}';
 }
