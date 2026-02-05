@@ -125,80 +125,45 @@ exports.criarPagamento = onCall(async (request) => {
   }
 
   /* ======================================================
-   MERCADO PAGO
-  ====================================================== */
-  /*
-    const client = new MercadoPagoConfig({
-      accessToken: process.env.MP_ACCESS_TOKEN,
-    });
-
-    const payment = new Payment(client);
-
-    const paymentData = {
-      transaction_amount: valorCentavos / 100, // número decimal
-      description: `Pacote ${pacote.nome}`,
-      payment_method_id: "pix",
-      payer: {
-        email: emailPagamento,
-      },
-    };
-
-    console.log("MP TOKEN PREFIX:", process.env.MP_ACCESS_TOKEN.slice(0, 5));
-    console.log("VALOR:", paymentData.transaction_amount);
-    console.log("EMAIL:", paymentData.payer.email);
-
-    const pagamentoMP = await payment.create({
-      body: paymentData,
-    });
-
-    console.log("MP RESPONSE STATUS:", pagamentoMP.status);
-    console.log("MP RESPONSE ID:", pagamentoMP.id);
-    console.log(
-      "PIX DATA:",
-      pagamentoMP.point_of_interaction?.transaction_data
-    );
-
-*/
-
-  /* ======================================================
-     MERCADO PAGO
-  ====================================================== */
+   MERCADO PAGO — CRIAÇÃO DO PAGAMENTO
+   (PIX / CARTÃO)
+====================================================== */
+  // Inicializa o client com TOKEN DE PRODUÇÃO (SECRET)
   const client = new MercadoPagoConfig({
     accessToken: process.env.MP_ACCESS_TOKEN,
   });
 
+  // SDK de pagamento
   const payment = new Payment(client);
 
+  // Montagem do corpo do pagamento
+  const pagamentoMP = await payment.create({
+    body: {
+      // Valor FINAL em reais (ex: 120.00)
+      transaction_amount: valorCentavos / 100,
 
- const paymentData = {
-      transaction_amount: Number(valor), // ex: 120.00
-      description: "Pacote PetDay",
-      payment_method_id: "pix",
+      description: `Pacote ${pacote.nome}`,
+
+      // PIX ou CARTÃO
+      payment_method_id: formaPagamento === "pix" ? "pix" : undefined,
+
+      // Parcelamento só existe para cartão
+      installments: formaPagamento === "cartao" ? parcelas : undefined,
+
       payer: {
         email: emailPagamento,
       },
-  };
- 
-  console.log("MP TOKEN PREFIX:", process.env.MP_ACCESS_TOKEN.slice(0, 5));
-  console.log("VALOR:", paymentData.transaction_amount);
-  console.log("EMAIL:", paymentData.payer.email);
-
-  const response = await mercadopago.payment.create(paymentData);
-
-  console.log("MP RESPONSE STATUS:", response.status);
-  console.log("MP RESPONSE BODY:", response.body);
-
-
-
-  const pagamentoMP = await payment.create({
-    body: {
-      transaction_amount: valorCentavos / 100,
-      description: pacote.nome,
-      payer: { email: emailPagamento },
-      payment_method_id: formaPagamento === "pix" ? "pix" : undefined,
-      installments: formaPagamento === "cartao" ? parcelas : undefined,
     },
   });
+
+  // Logs úteis para debug em produção
+  console.log("MP PAYMENT ID:", pagamentoMP.id);
+  console.log("MP STATUS:", pagamentoMP.status);
+  console.log(
+    "MP PIX DATA:",
+    pagamentoMP.point_of_interaction?.transaction_data ?? null
+  );
+
 
   /* ======================================================
      CRIAR PACOTE ADQUIRIDO
