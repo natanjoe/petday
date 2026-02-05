@@ -17,6 +17,7 @@ dependencies:
   sign_in_with_apple: ^6.1.0
   flutter_svg: ^2.2.3   # 👈 IMPORTANTE para SVG
   image_picker: ^1.0.7
+  image_picker_for_web: ^3.0.4
   firebase_storage: ^11.6.5
 
   # Firebase
