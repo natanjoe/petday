@@ -1,11 +1,12 @@
 const { onCall } = require("firebase-functions/v2/https");
 const admin = require("firebase-admin");
-const { MercadoPagoConfig, Payment } = require("mercadopago");
 
 const db = admin.firestore();
 
+const pagarComMercadoPago = require("./gateways/mercadopago.gateway");
+
 /* ======================================================
-   FUNÇÃO: CRIAR PAGAMENTO (SaaS / Multi-creche)
+   FUNÇÃO: CRIAR PAGAMENTO (ROUTER)
 ====================================================== */
 module.exports = onCall(async (request) => {
   const { data, auth } = request;
@@ -22,7 +23,7 @@ module.exports = onCall(async (request) => {
   }
 
   /* ======================================================
-     INTENÇÃO DE COMPRA (FONTE DA VERDADE)
+     INTENÇÃO DE COMPRA
   ====================================================== */
   const intencaoSnap = await db
     .collection("intencoes_compra")
@@ -36,7 +37,7 @@ module.exports = onCall(async (request) => {
   const intencao = intencaoSnap.data();
 
   if (intencao.status && intencao.status !== "criada") {
-    throw new Error("Pagamento já iniciado para esta intenção");
+    throw new Error("Pagamento já iniciado");
   }
 
   const crecheId = intencao.creche_id;
@@ -48,148 +49,42 @@ module.exports = onCall(async (request) => {
   }
 
   /* ======================================================
-     CONFIGURAÇÃO DO GATEWAY (CRECHE)
+     GATEWAY ATIVO DA CRECHE
   ====================================================== */
-  const gatewaySnap = await db
+  const gatewaysSnap = await db
     .collection("creches")
     .doc(crecheId)
     .collection("pagamentos")
-    .doc("mercadopago")
+    .where("ativo", "==", true)
+    .limit(1)
     .get();
 
-  if (!gatewaySnap.exists || !gatewaySnap.data()?.ativo) {
-    throw new Error("Pagamentos indisponíveis para esta creche");
+  if (gatewaysSnap.empty) {
+    throw new Error("Nenhum gateway ativo para esta creche");
   }
 
-  const gatewayConfig = gatewaySnap.data();
+  const gatewayDoc = gatewaysSnap.docs[0];
+  const gatewayId = gatewayDoc.id;
+  const gatewayConfig = gatewayDoc.data();
 
-  if (formaPagamento === "pix" && !gatewayConfig.pix_ativo) {
-    throw new Error("PIX indisponível");
+  /* ======================================================
+     ROTEADOR
+  ====================================================== */
+  switch (gatewayId) {
+    case "mercadopago":
+      return pagarComMercadoPago({
+        auth,
+        intencaoSnap,
+        crecheId,
+        pacoteId,
+        preferencias,
+        formaPagamento,
+        parcelas,
+        emailPagamento,
+        gatewayConfig,
+      });
+
+    default:
+      throw new Error(`Gateway não suportado: ${gatewayId}`);
   }
-
-  if (formaPagamento === "cartao") {
-    if (!gatewayConfig.cartao_ativo) {
-      throw new Error("Cartão indisponível");
-    }
-    if (parcelas > gatewayConfig.parcelamento_maximo) {
-      throw new Error("Parcelamento inválido");
-    }
-  }
-
-  /* ======================================================
-     TOKEN DO MERCADO PAGO (SECRET)
-  ====================================================== */
-  const secretName = gatewayConfig.secret_name;
-  const accessToken = process.env[secretName];
-
-  if (!accessToken) {
-    throw new Error("Token do Mercado Pago não configurado para esta creche");
-  }
-
-  /* ======================================================
-     PACOTE
-  ====================================================== */
-  const pacoteSnap = await db
-    .collection("creches")
-    .doc(crecheId)
-    .collection("pacotes")
-    .doc(pacoteId)
-    .get();
-
-  if (!pacoteSnap.exists) {
-    throw new Error("Pacote não encontrado");
-  }
-
-  const pacote = pacoteSnap.data();
-  if (!pacote.ativo) {
-    throw new Error("Pacote indisponível");
-  }
-
-  /* ======================================================
-     VALOR (CENTAVOS – SEMPRE)
-  ====================================================== */
-  if (typeof pacote.preco_centavos !== "number") {
-    throw new Error("Preço inválido no pacote");
-  }
-
-  const valorCentavos = Math.round(pacote.preco_centavos);
-
-  /* ======================================================
-     MERCADO PAGO — CRIAÇÃO DO PAGAMENTO
-  ====================================================== */
-  const client = new MercadoPagoConfig({
-    accessToken,
-    options: { timeout: 5000 },
-  });
-
-  const payment = new Payment(client);
-
-  const pagamentoMP = await payment.create({
-    body: {
-      transaction_amount: valorCentavos / 100,
-      description: `Pacote ${pacote.nome}`,
-      payment_method_id: formaPagamento === "pix" ? "pix" : undefined,
-      installments: formaPagamento === "cartao" ? parcelas : undefined,
-      payer: {
-        email: emailPagamento,
-      },
-    },
-  });
-
-  /* ======================================================
-     PACOTE ADQUIRIDO
-  ====================================================== */
-  const pacoteAdquiridoRef = await db.collection("pacotes_adquiridos").add({
-    tutor_id: auth?.uid ?? null,
-    email_pagamento: emailPagamento,
-
-    creche_id: crecheId,
-    pacote_id: pacoteId,
-    pacote_nome: pacote.nome,
-
-    preferencias,
-
-    diarias_totais: pacote.diarias,
-    diarias_usadas: 0,
-
-    valor_total_centavos: valorCentavos,
-
-    pagamento: {
-      gateway: "mercadopago",
-      metodo: formaPagamento,
-      parcelas,
-      external_id: pagamentoMP.id,
-      status: pagamentoMP.status,
-    },
-
-    status: "pendente_pagamento",
-
-    criado_em: admin.firestore.FieldValue.serverTimestamp(),
-    atualizado_em: admin.firestore.FieldValue.serverTimestamp(),
-  });
-
-  /* ======================================================
-     MARCAR INTENÇÃO
-  ====================================================== */
-  await intencaoSnap.ref.update({
-    status: "pagamento_criado",
-    pacote_adquirido_id: pacoteAdquiridoRef.id,
-    atualizado_em: admin.firestore.FieldValue.serverTimestamp(),
-  });
-
-  /* ======================================================
-     RETORNO PARA O CLIENTE
-  ====================================================== */
-  return {
-    pagamentoId: pagamentoMP.id,
-    status: pagamentoMP.status,
-
-    pix_qr_code_base64:
-      pagamentoMP.point_of_interaction?.transaction_data?.qr_code_base64 ?? null,
-
-    pix_copia_e_cola:
-      pagamentoMP.point_of_interaction?.transaction_data?.qr_code ?? null,
-
-    pacoteAdquiridoId: pacoteAdquiridoRef.id,
-  };
 });
