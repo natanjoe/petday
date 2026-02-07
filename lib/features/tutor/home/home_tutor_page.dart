@@ -21,7 +21,7 @@ class _HomeTutorPageState extends State<HomeTutorPage> {
   @override
   void initState() {
     super.initState();
-    _associarPacotesAoTutor();
+    _associarPacoteAoTutor();
   }
 
   void _selecionarPagina(Widget pagina) {
@@ -201,10 +201,10 @@ class _HomeTutorPageState extends State<HomeTutorPage> {
 /*====================================
   ASSOCIA PACOTES AO TUTOR NO LOGIN
 =====================================*/
-Future<void> _associarPacotesAoTutor() async {
+Future<void> _associarPacoteAoTutor() async {
   try {
     final callable = FirebaseFunctions.instance
-        .httpsCallable('associarPacotesAoTutor');
+        .httpsCallable('associarPacoteAoTutor');
 
     final result = await callable.call();
 

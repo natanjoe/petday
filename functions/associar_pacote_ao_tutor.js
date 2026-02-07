@@ -3,72 +3,38 @@ const admin = require("firebase-admin");
 
 const db = admin.firestore();
 
-/*===============================
-FUNÇÃO: ASSOCIA O PACOTE ADQUIRIDO AO TUTOR
-- idempotente
-- segura
-- NÃO quebra pagamento
-==================================*/
 module.exports = onCall(
-  {
-    region: "us-central1",
-    enforceAppCheck: false, // 🔴 ESSENCIAL  
-  },
+  { region: "us-central1", enforceAppCheck: false },
   async (request) => {
-  const { auth } = request;
+    const { auth } = request;
 
-  // 🔐 Sem auth? Não faz nada, mas NÃO quebra o fluxo
-  if (!auth) {
-    return { associados: 0 };
-  }
+    if (!auth?.uid || !auth?.token?.email) {
+      return { associados: 0 };
+    }
 
-  const userId = auth.uid;
+    const userId = auth.uid;
+    const email = auth.token.email;
 
-  // buscar usuário
-  const userSnap = await db
-    .collection("usuarios")
-    .doc(userId)
-    .get();
+    const snap = await db
+      .collection("pacotes_adquiridos")
+      .where("tutor_id", "==", null)
+      .where("email_pagamento", "==", email)
+      .where("status", "==", "ativo")
+      .get();
 
-  if (!userSnap.exists) {
-    // aqui é erro real
-    throw new HttpsError("not-found", "Usuário não encontrado");
-  }
+    if (snap.empty) return { associados: 0 };
 
-  const userData = userSnap.data();
-  const email = userData.email;
+    const batch = db.batch();
 
-  if (!email) {
-    throw new HttpsError(
-      "failed-precondition",
-      "Usuário não possui email"
-    );
-  }
-
-  // buscar pacotes pagos ainda não associados
-  const pacotesSnap = await db
-    .collection("pacotes_adquiridos")
-    .where("tutor_id", "==", null)
-    .where("email_pagamento", "==", email)
-    .where("status", "==", "ativo")
-    .get();
-
-  if (pacotesSnap.empty) {
-    return { associados: 0 };
-  }
-
-  const batch = db.batch();
-
-  pacotesSnap.docs.forEach((doc) => {
-    batch.update(doc.ref, {
-      tutor_id: userId,
-      atualizado_em: admin.firestore.FieldValue.serverTimestamp(),
+    snap.docs.forEach((doc) => {
+      batch.update(doc.ref, {
+        tutor_id: userId,
+        atualizado_em: admin.firestore.FieldValue.serverTimestamp(),
+      });
     });
-  });
 
-  await batch.commit();
+    await batch.commit();
 
-  return {
-    associados: pacotesSnap.size,
-  };
-});
+    return { associados: snap.size };
+  }
+);
