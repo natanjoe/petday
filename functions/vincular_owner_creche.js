@@ -3,7 +3,12 @@ const admin = require("firebase-admin");
 
 const db = admin.firestore();
 
-module.exports = onCall(async (request) => {
+module.exports = onCall(
+  {
+    region: "us-central1",
+    enforceAppCheck: false, // 🔴 ESSENCIAL  
+  },
+  async (request) => {
   const { auth } = request;
 
   if (!auth || !auth.token.email) {

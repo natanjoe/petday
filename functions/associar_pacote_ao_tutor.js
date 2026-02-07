@@ -9,7 +9,12 @@ FUNÇÃO: ASSOCIA O PACOTE ADQUIRIDO AO TUTOR
 - segura
 - NÃO quebra pagamento
 ==================================*/
-module.exports = onCall(async (request) => {
+module.exports = onCall(
+  {
+    region: "us-central1",
+    enforceAppCheck: false, // 🔴 ESSENCIAL  
+  },
+  async (request) => {
   const { auth } = request;
 
   // 🔐 Sem auth? Não faz nada, mas NÃO quebra o fluxo

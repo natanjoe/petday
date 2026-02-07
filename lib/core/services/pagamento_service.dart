@@ -1,10 +1,10 @@
-import 'package:cloud_functions/cloud_functions.dart';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
 
 class PagamentoService {
-  /// ⚠️ IMPORTANTE:
-  /// As Cloud Functions estão em us-central1
-  final FirebaseFunctions _functions =
-      FirebaseFunctions.instanceFor(region: 'us-central1');
+  /// Endpoint HTTP da Cloud Function (onRequest)
+  static const String _baseUrl =
+      'https://us-central1-petday-83d9c.cloudfunctions.net/criarPagamento';
 
   /// Cria um pagamento no backend (PIX ou cartão)
   ///
@@ -12,31 +12,39 @@ class PagamentoService {
   /// - qr_code_base64 (PIX)
   /// - pix_copia_e_cola (PIX)
   /// - pacoteAdquiridoId
-  ///
-  /// Fonte da verdade:
-  /// - intencoes_compra (entrada)
-  /// - pacotes_adquiridos (pós-pagamento)
   Future<Map<String, dynamic>> criarPagamento({
     required String intencaoCompraId,
     required String formaPagamento, // 'pix' | 'cartao'
     required String emailPagamento,
   }) async {
     try {
-      final callable = _functions.httpsCallable('criarPagamento');
+      final response = await http.post(
+        Uri.parse(_baseUrl),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({
+          'intencaoCompraId': intencaoCompraId,
+          'formaPagamento': formaPagamento,
+          'emailPagamento': emailPagamento,
+        }),
+      );
 
-      final response = await callable.call({
-        'intencaoCompraId': intencaoCompraId,
-        'formaPagamento': formaPagamento,
-        'emailPagamento': emailPagamento,
-      });
+      if (response.statusCode != 200) {
+        final body = response.body.isNotEmpty
+            ? jsonDecode(response.body)
+            : null;
 
-      return Map<String, dynamic>.from(response.data);
-    } on FirebaseFunctionsException catch (e) {
-      throw Exception(
-        e.message ?? 'Erro ao criar pagamento no servidor',
+        throw Exception(
+          body?['error'] ?? 'Erro ao criar pagamento no servidor',
+        );
+      }
+
+      return Map<String, dynamic>.from(
+        jsonDecode(response.body),
       );
     } catch (e) {
-      throw Exception('Erro inesperado ao processar pagamento');
+      throw Exception('Erro ao processar pagamento');
     }
   }
 }
