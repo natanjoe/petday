@@ -4,10 +4,11 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 
 import 'package:petday/features/tutor/home/home_tutor_page.dart';
+import 'package:petday/features/admin/home_admin_page.dart';
 import '../../../core/services/auth_service.dart';
-import '../home_admin_page.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -25,7 +26,10 @@ class _LoginPageState extends State<LoginPage> {
   String? _error;
 
   /* ======================================================
-    LOGIN HANDLER GENÉRICO
+     HANDLER CENTRAL DE LOGIN
+     - autentica
+     - vincula owner automaticamente
+     - resolve destino (admin / tutor)
   ====================================================== */
   Future<void> _handleLogin(
     Future<User> Function() loginFn,
@@ -36,20 +40,48 @@ class _LoginPageState extends State<LoginPage> {
     });
 
     try {
+      /* =========================
+         1) LOGIN (AUTH)
+      ========================= */
       final user = await loginFn();
+
+      /* =========================
+         2) VINCULA OWNER (SE FOR)
+         - idempotente
+         - não bloqueia login
+      ========================= */
+      try {
+        final callable =
+            FirebaseFunctions.instance.httpsCallable('vincularOwnerCreche');
+        await callable.call();
+      } catch (e) {
+        debugPrint('vincularOwnerCreche falhou: $e');
+      }
+
+      /* =========================
+         3) RESOLVE ROLE ATUAL
+         (temporário, até migrar 100%)
+      ========================= */
       final role = await _authService.getUserRole(user.uid);
 
       if (!mounted) return;
 
+      /* =========================
+         4) NAVEGAÇÃO
+      ========================= */
       if (role == 'admin') {
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (_) => const HomeAdminPage()),
+          MaterialPageRoute(
+            builder: (_) => const HomeAdminPage(),
+          ),
         );
       } else {
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (_) => const HomeTutorPage()),
+          MaterialPageRoute(
+            builder: (_) => const HomeTutorPage(),
+          ),
         );
       }
     } catch (e) {
@@ -57,15 +89,18 @@ class _LoginPageState extends State<LoginPage> {
         _error = 'Erro ao entrar: ${e.toString()}';
       });
     } finally {
-      setState(() {
-        _loading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _loading = false;
+        });
+      }
     }
   }
 
   /* ======================================================
-    MÉTODOS DE LOGIN
+     MÉTODOS DE LOGIN
   ====================================================== */
+
   Future<void> _loginWithEmail() async {
     await _handleLogin(() {
       return _authService.signInWithEmail(
@@ -84,7 +119,7 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   /* ======================================================
-    UI
+     UI
   ====================================================== */
   @override
   Widget build(BuildContext context) {
@@ -94,11 +129,10 @@ class _LoginPageState extends State<LoginPage> {
         centerTitle: true,
         title: Row(
           mainAxisSize: MainAxisSize.min,
-          children: [
-            // 🔹 Logo da creche (placeholder)
-            const Icon(Icons.pets, size: 28),
-            const SizedBox(width: 8),
-            const Text(
+          children: const [
+            Icon(Icons.pets, size: 28),
+            SizedBox(width: 8),
+            Text(
               'PetDay',
               style: TextStyle(fontWeight: FontWeight.bold),
             ),

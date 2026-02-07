@@ -1,14 +1,14 @@
-/*=======================
- * Responsabilidades:
- *   Buscar gateways da creche
- *   Ativar / desativar
- *   Garantir regra de gateway único ativo
- *======================================*/
+
+/*===========================
+➡️ Lista pagamentos já realizados, 
+➡️ Fonte: pacotes_adquiridos
+➡️ Usado pela AdminPagamentosPage (histórico / financeiro) 
+===========================================================*/
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:petday/core/config/app_context.dart';
 
-class PagamentoAdminService {
+class ListarPagamentoAdminService {
   Stream<QuerySnapshot<Map<String, dynamic>>> listarPagamentosDaCreche() {
     return FirebaseFirestore.instance
         .collection('pacotes_adquiridos')

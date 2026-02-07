@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:petday/features/admin/configuracoes/admin_configuracao_pagamentos_page.dart';
 import 'package:petday/features/admin/configuracoes/configuracoes_page.dart';
 import 'package:petday/features/admin/home/dashboard_admin_page.dart';
 import 'package:petday/features/admin/home_admin_page.dart';
@@ -179,6 +180,19 @@ class _AdminSidebar extends StatelessWidget {
           ),
 
           _MenuItem(
+            Icons.payment,
+            'Pagamentos',
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => AdminConfiguracaoPagamentosPage(),
+                ),
+              );
+            },
+          ),
+
+          _MenuItem(
             Icons.settings,
             'Configurações',
             onTap: () {
@@ -232,6 +246,19 @@ class _AdminDrawer extends StatelessWidget {
               goToDashboard(context);
             },
           ),
+       
+          ListTile(
+            leading: const Icon(Icons.payment),
+            title: const Text('Pagamentos'),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => AdminConfiguracaoPagamentosPage(),
+                ),
+              );
+            },
+          ),
 
           _MenuItem(
             Icons.settings,
@@ -246,6 +273,7 @@ class _AdminDrawer extends StatelessWidget {
               );
             },
           ),
+          
         ],
       ),
     );

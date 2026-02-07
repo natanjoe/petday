@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:petday/core/services/pagamento_admin_service.dart';
+import 'package:petday/core/services/listar_pagamento_admin_service.dart';
 import 'package:petday/features/admin/pagamentos/pagamento_detalhe_admin_page.dart';
 
 class AdminPagamentosPage extends StatelessWidget {
   AdminPagamentosPage({super.key});
 
-  final service = PagamentoAdminService();
+  final service = ListarPagamentoAdminService();
 
   Color _statusColor(String status) {
     switch (status) {

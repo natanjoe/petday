@@ -28,3 +28,8 @@ exports.checkinReservaAdmin = require("./checkin_reserva_admin");
 
 // Associação de pacotes
 exports.associarPacoteAoTutor = require("./associar_pacote_ao_tutor");
+
+/* ======================
+   OWNER / ADMIN
+====================== */
+exports.vincularOwnerCreche = require("./vincular_owner_creche");

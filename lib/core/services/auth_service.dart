@@ -1,6 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:petday/core/config/app_context.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import 'package:flutter/foundation.dart';
 
@@ -112,15 +113,28 @@ class AuthService {
    ROLE
   ====================================================== */
   Future<String> getUserRole(String uid) async {
-    final doc = await _db.collection('usuarios').doc(uid).get();
+    final crecheId = AppContext.crecheId;
 
-    if (!doc.exists) {
-      throw Exception('Usuário não encontrado no sistema');
+    if (crecheId == null || crecheId.isEmpty) {
+      // fallback seguro
+      return 'tutor';
     }
 
-    return doc.data()!['role'];
-  }
+    final adminRef = _db
+        .collection('creches')
+        .doc(crecheId)
+        .collection('admins')
+        .doc(uid);
 
+    final adminSnap = await adminRef.get();
+
+    if (adminSnap.exists && adminSnap.data()?['ativo'] == true) {
+      return 'admin';
+    }
+
+    return 'tutor';
+  }
+  
   /* ======================================================
    LOGOUT
   ====================================================== */
